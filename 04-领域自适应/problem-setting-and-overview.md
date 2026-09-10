@@ -21,7 +21,7 @@
 **[分析判断]** “使用未标注数据”还不足以确定任务属于领域自适应，需要说明源域与目标域的关系：
 
 - 仅用目标产品的正常图像建立参考特征库，且没有源域迁移过程：可按目标域上的单类异常检测理解。
-- 冻结视觉语言模型，直接用文本类别描述进行零样本识别：这一过程没有针对目标域数据进行适配。相关基础见 [CLIP](../02-Vision-Tasks/clip.md)。
+- 冻结视觉语言模型，直接用文本类别描述进行零样本识别：这一过程没有针对目标域数据进行适配。相关基础见 [CLIP](../02-%E5%9F%BA%E7%A1%80%E8%A7%86%E8%A7%89%E4%BB%BB%E5%8A%A1/clip.md)。
 - 平均教师方法利用教师与学生预测的一致性学习未标注数据。用于领域自适应时，还需要明确源域、目标域和各自的监督信息。
 
 ---
@@ -96,35 +96,35 @@
 
 | 方法族入口 | 主要思路 | 内容状态与阅读提示 |
 |---|---|---|
-| [对抗方法](Adversarial/) | 训练域分类器，并让特征提取器降低域可区分性；也可结合共享与私有表示分解 | 已有论文及单篇草稿，串讲待编写 |
-| [分布差异最小化](Discrepancy-Minimization/) | 显式减小两域表示的分布差异 | 待补充论文与串讲 |
-| [对齐](Alignment/) | 对齐统计量或表示，与上一类有交叉 | 待补充论文与串讲 |
-| [重建与解耦](Reconstruction-and-Disentanglement/) | 通过重建与表示分解区分共享信息和域特有信息 | 待补充论文与串讲；领域分离网络原文在对抗方法目录 |
-| [生成方法](Generative/) | 用图像翻译改变样本外观 | 已有论文；图像翻译用于适配时仍需说明任务协议 |
-| [融合与混合](Fusion-and-Mixing/) | 混合跨域样本或表示 | 已有论文；需分别检查每篇的监督条件 |
+| [对抗方法](%E5%AF%B9%E6%8A%97/) | 训练域分类器，并让特征提取器降低域可区分性；也可结合共享与私有表示分解 | 已有论文及单篇草稿，串讲待编写 |
+| [分布差异最小化](%E5%B7%AE%E5%BC%82%E6%9C%80%E5%B0%8F%E5%8C%96/) | 显式减小两域表示的分布差异 | 待补充论文与串讲 |
+| [对齐](%E5%AF%B9%E9%BD%90/) | 对齐统计量或表示，与上一类有交叉 | 待补充论文与串讲 |
+| [重建与解耦](%E9%87%8D%E5%BB%BA%E4%B8%8E%E8%A7%A3%E8%80%A6/) | 通过重建与表示分解区分共享信息和域特有信息 | 待补充论文与串讲；领域分离网络原文在对抗方法目录 |
+| [生成方法](%E7%94%9F%E6%88%90%E5%BC%8F%E7%BF%BB%E8%AF%91/) | 用图像翻译改变样本外观 | 已有论文；图像翻译用于适配时仍需说明任务协议 |
+| [融合与混合](%E8%9E%8D%E5%90%88%E4%B8%8E%E6%B7%B7%E5%90%88/) | 混合跨域样本或表示 | 已有论文；需分别检查每篇的监督条件 |
 | [平均教师](Mean-Teacher/) | 平滑更新教师参数，以教师预测约束学生 | 已有论文；串讲需说明从半监督学习到领域自适应的变化 |
-| [伪标签](Pseudo-Label/) | 用模型预测构造训练目标，进行自训练 | 已有论文，包含源数据不可用与黑盒适配的工作 |
-| [新问题设定](New-Problem-Settings/) | 收集额外的数据约束与任务设定 | 已有部分论文；领域泛化与测试时适应安排在后续 |
-| [视觉语言先验](VLM-Prior/pointer.md) | 引用预训练视觉语言表示 | 相关基础正文在视觉任务目录；此处提供跨主题入口 |
-| [综述](Survey/) | 比较问题设定与方法分类 | 已有论文，用于查阅；综述本身不是方法族 |
+| [伪标签](%E4%BC%AA%E6%A0%87%E7%AD%BE/) | 用模型预测构造训练目标，进行自训练 | 已有论文，包含源数据不可用与黑盒适配的工作 |
+| [新问题设定](%E6%96%B0%E8%AE%BE%E5%AE%9A/) | 收集额外的数据约束与任务设定 | 已有部分论文；领域泛化与测试时适应安排在后续 |
+| [视觉语言先验](VLM%E5%85%88%E9%AA%8C/pointer.md) | 引用预训练视觉语言表示 | 相关基础正文在视觉任务目录；此处提供跨主题入口 |
+| [综述](%E7%BB%BC%E8%BF%B0/) | 比较问题设定与方法分类 | 已有论文，用于查阅；综述本身不是方法族 |
 
 ### 2.1 阅读顺序与当前进度
 
 1. 先读本文第 1 节，明确可用数据与预测目标。
-2. 进入 [对抗方法](Adversarial/)，阅读领域对抗神经网络与领域分离网络的论文和草稿。
-3. 再读 [平均教师](Mean-Teacher/)与 [伪标签](Pseudo-Label/)目录中的论文；对应串讲尚未完成。
+2. 进入 [对抗方法](%E5%AF%B9%E6%8A%97/)，阅读领域对抗神经网络与领域分离网络的论文和草稿。
+3. 再读 [平均教师](Mean-Teacher/)与 [伪标签](%E4%BC%AA%E6%A0%87%E7%AD%BE/)目录中的论文；对应串讲尚未完成。
 4. 按任务需要查阅其他已有论文的方法族；仅有占位文件的主题暂时跳过。
 
 ---
 
 ## 3. 与异常检测的关系
 
-**[分析判断]** 结合 [异常检测总览](../03-Anomaly-Detection/problem-setting-and-overview.md)中的域关系，分别回答：源域提供了什么知识，目标域提供了什么数据，适配后怎样计算异常分数。仅说明“源域与目标域的特征更相似”，还不足以解释缺陷为何可被识别。
+**[分析判断]** 结合 [异常检测总览](../03-%E7%BC%BA%E9%99%B7%E6%A3%80%E6%B5%8B/problem-setting-and-overview.md)中的域关系，分别回答：源域提供了什么知识，目标域提供了什么数据，适配后怎样计算异常分数。仅说明“源域与目标域的特征更相似”，还不足以解释缺陷为何可被识别。
 
-低秩微调规定参数如何更新，视觉语言预训练提供表示基础；它们用于领域自适应时，仍需另外规定目标域学习协议。相关内容见 [低秩微调](../01-Foundations/PEFT/)和 [CLIP](../02-Vision-Tasks/clip.md)。
+低秩微调规定参数如何更新，视觉语言预训练提供表示基础；它们用于领域自适应时，仍需另外规定目标域学习协议。相关内容见 [低秩微调](../01-%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA/%E5%8F%82%E6%95%B0%E9%AB%98%E6%95%88%E5%BE%AE%E8%B0%83/)和 [CLIP](../02-%E5%9F%BA%E7%A1%80%E8%A7%86%E8%A7%89%E4%BB%BB%E5%8A%A1/clip.md)。
 
 ## 论文出处
 
-> [1] Yuhua Chen, Wen Li, Christos Sakaridis, Dengxin Dai, Luc Van Gool. “Domain Adaptive Faster R-CNN for Object Detection in the Wild.” CVPR, 2018。图像级与实例级对齐见公开版第 3–5 页。[原文](<Adversarial/[CVPR 2018] DA-Faster - Domain Adaptive Faster R-CNN for Object Detection in the Wild/paper.pdf>)
+> [1] Yuhua Chen, Wen Li, Christos Sakaridis, Dengxin Dai, Luc Van Gool. “Domain Adaptive Faster R-CNN for Object Detection in the Wild.” CVPR, 2018。图像级与实例级对齐见公开版第 3–5 页。[原文](<对抗/[CVPR 2018] DA-Faster - Domain Adaptive Faster R-CNN for Object Detection in the Wild/paper.pdf>)
 >
-> [2] Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, François Laviolette, Mario Marchand, Victor Lempitsky. “Domain-Adversarial Training of Neural Networks.” JMLR, 17(59):1–35, 2016。问题设定见第 5 页，网络目标与梯度反转见第 10–12 页。[原文](<Adversarial/[JMLR 2016] DANN - Domain-Adversarial Training of Neural Networks/paper.pdf>)
+> [2] Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, François Laviolette, Mario Marchand, Victor Lempitsky. “Domain-Adversarial Training of Neural Networks.” JMLR, 17(59):1–35, 2016。问题设定见第 5 页，网络目标与梯度反转见第 10–12 页。[原文](<对抗/[JMLR 2016] DANN - Domain-Adversarial Training of Neural Networks/paper.pdf>)

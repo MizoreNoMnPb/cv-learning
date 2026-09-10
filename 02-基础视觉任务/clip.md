@@ -2,7 +2,7 @@
 
 > CLIP（Contrastive Language–Image Pre-training，对比语言—图像预训练）：分别编码图像和文本，通过对比目标学习可比较的表示。[1，第 3–5 页]
 
-本文先介绍训练与零样本分类，再说明两个编码器的作用，最后比较手工提示与可学习提示。阅读前可先了解 [注意力](../01-Foundations/attention.md)和 [交叉熵损失](../01-Foundations/losses.md)。
+本文先介绍训练与零样本分类，再说明两个编码器的作用，最后比较手工提示与可学习提示。阅读前可先了解 [注意力](../01-%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA/attention.md)和 [交叉熵损失](../01-%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA/losses.md)。
 
 ## 一、图像与文本如何匹配
 
@@ -179,7 +179,7 @@ $$
 
 ## 论文出处
 
-> [1] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever. “Learning Transferable Visual Models From Natural Language Supervision.” ICML, 2021。双向对比训练见公开版第 3–4 页，编码器见第 5 页，零样本分类见第 5–6 页，提示与局限见第 7 页、第 15–16 页。[归档原文](<Multimodal/paper/[ICML 2021] CLIP - Learning Transferable Visual Models From Natural Language Supervision/paper.pdf>)
+> [1] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever. “Learning Transferable Visual Models From Natural Language Supervision.” ICML, 2021。双向对比训练见公开版第 3–4 页，编码器见第 5 页，零样本分类见第 5–6 页，提示与局限见第 7 页、第 15–16 页。[归档原文](<多模态/paper/[ICML 2021] CLIP - Learning Transferable Visual Models From Natural Language Supervision/paper.pdf>)
 >
 > [2] Kaiyang Zhou, Jingkang Yang, Chen Change Loy, Ziwei Liu. “Learning to Prompt for Vision-Language Models.” IJCV, 2022。提示参数化与训练见公开版第 4–5 页。[原文](https://arxiv.org/pdf/2109.01134)
 >

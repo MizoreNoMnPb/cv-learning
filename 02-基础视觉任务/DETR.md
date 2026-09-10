@@ -2,7 +2,7 @@
 
 > 本文比较集合预测、可变形注意力、去噪训练与文本条件检测。首次阅读按 DETR、[Deformable DETR](#deformable-detr)、[DINO](#dino)、[Grounding DINO](#grounding-dino)的顺序阅读；第 1.8 节的 Swin 背景可在需要了解骨干网络时补读。
 
-前置知识：[R-CNN 系列](rcnn.md)、[注意力](../01-Foundations/attention.md)和 [交叉注意力](cross-attention.md)。
+前置知识：[R-CNN 系列](rcnn.md)、[注意力](../01-%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA/attention.md)和 [交叉注意力](cross-attention.md)。
 
 ---
 

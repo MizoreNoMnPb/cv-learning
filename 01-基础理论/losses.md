@@ -208,7 +208,7 @@ $$\mathcal{L}_{InfoNCE} = -\frac{1}{N} \sum_{i=1}^N \log \frac{\exp(\text{sim}(v
 - 负对：当前批次内未配对的图文组合
 - $\tau>0$：温度参数，控制候选概率的集中程度
 
-将相似度经 Softmax 转成匹配概率，再对正确匹配取负对数并平均，即得上式。双向目标与温度解释见 [CLIP 文档](../02-Vision-Tasks/clip.md)。
+将相似度经 Softmax 转成匹配概率，再对正确匹配取负对数并平均，即得上式。双向目标与温度解释见 [CLIP 文档](../02-%E5%9F%BA%E7%A1%80%E8%A7%86%E8%A7%89%E4%BB%BB%E5%8A%A1/clip.md)。
 
 ### 4.2 三元组损失（Triplet Loss）
 

@@ -125,18 +125,18 @@
 | 方法族 | 目录 | 建模假设概括 | 需要检查的风险 | 首批计划 |
 |---|---|---|---|---|
 | OCC / 超球体 | `OCC/` | 用超球体描述正常特征的接受范围 | 球形范围可能不足以描述复杂的正常分布；语义分类不能代替局部定位 | 是 |
-| 特征记忆库与原型 | `Memory-Prototype/` | 正常局部特征可被有限样本（或原型）覆盖；用到正常参考特征的距离评分 | 局部比较忽略逻辑关系；特征提取器变化后参考特征失配；子集选择遗漏少见正常样本 | 是 |
-| 特征空间合成 + 判别 | `Feature-Synthesis/` | 在特征里加噪声/合成异常，学一个可分边界 | 合成分布与真实缺陷有差异；分布偏移可能影响判别边界 | 是 |
-| 学生–教师蒸馏 | `Distillation/` | 教师对正常的表示，学生学得会；异常处师生不一致 | 学生也能拟合异常处的教师输出，导致差异不足 | 是 |
-| 归一化流 | `Normalizing-Flow/` | 正常可用可逆变换接到简单密度，以低似然作为异常线索 | 分布外样本也可能获得高似然 | 是 |
+| 特征记忆库与原型 | `记忆与原型/` | 正常局部特征可被有限样本（或原型）覆盖；用到正常参考特征的距离评分 | 局部比较忽略逻辑关系；特征提取器变化后参考特征失配；子集选择遗漏少见正常样本 | 是 |
+| 特征空间合成 + 判别 | `特征合成/` | 在特征里加噪声/合成异常，学一个可分边界 | 合成分布与真实缺陷有差异；分布偏移可能影响判别边界 | 是 |
+| 学生–教师蒸馏 | `蒸馏/` | 教师对正常的表示，学生学得会；异常处师生不一致 | 学生也能拟合异常处的教师输出，导致差异不足 | 是 |
+| 归一化流 | `归一化流/` | 正常可用可逆变换接到简单密度，以低似然作为异常线索 | 分布外样本也可能获得高似然 | 是 |
 | VAE | `VAE/` | 用潜变量模型描述正常样本，以重构误差或 ELBO 构造分数 | 缺陷也可能被准确重构；ELBO 不等于精确似然 | 是 |
 | VLM-AD | `VLM-AD/` | 语言–图像预训练提供「正常/缺陷」可迁移先验 | 细粒度工业纹理与自然语言对不齐；零样本 ≠ 已校准 | 是 |
 | 其他自编码器或生成对抗重建方法 | （后续） | 正常可重构、异常不可 | 与 VAE 近，但不并进 VAE 族 | 否 |
-| Mean Teacher | 不在本树 | 通过教师与学生预测的一致性利用未标注数据 | 见 `04-Domain-Adaptation/Mean-Teacher/`；`MT+AD` 后续只做链接 | 否 |
+| Mean Teacher | 不在本树 | 通过教师与学生预测的一致性利用未标注数据 | 见 `04-领域自适应/Mean-Teacher/`；`MT+AD` 后续只做链接 | 否 |
 
 **[分析判断]** 比较密度建模方法时，应区分归一化流通过变量替换计算的似然，与 VAE 使用的 ELBO。比较记忆库方法时，则需要说明参考特征如何保存、如何计算距离。
 
-视觉语言模型异常检测是后续需要补充原文与串讲的主题。相关基础见 [CLIP](../02-Vision-Tasks/clip.md)；开放词汇目标检测的阅读入口见 [视觉语言先验](../04-Domain-Adaptation/VLM-Prior/pointer.md)。
+视觉语言模型异常检测是后续需要补充原文与串讲的主题。相关基础见 [CLIP](../02-%E5%9F%BA%E7%A1%80%E8%A7%86%E8%A7%89%E4%BB%BB%E5%8A%A1/clip.md)；开放词汇目标检测的阅读入口见 [视觉语言先验](../04-%E9%A2%86%E5%9F%9F%E8%87%AA%E9%80%82%E5%BA%94/VLM%E5%85%88%E9%AA%8C/pointer.md)。
 
 ---
 
@@ -146,16 +146,16 @@
 |---|---|
 | Tax & Duin, SVDD, 2004 | `OCC/` |
 | Ruff et al., Deep SVDD, ICML 2018 | `OCC/` |
-| Roth et al., PatchCore, CVPR 2022 | `Memory-Prototype/` |
-| Deng & Li, Anomaly Detection via Reverse Distillation from One-Class Embedding, CVPR 2022 | [蒸馏](Distillation/) |
-| Liu et al., SimpleNet, CVPR 2023 | `Feature-Synthesis/` |
-| SuperSimpleNet | `Feature-Synthesis/`（SimpleNet 同族；空夹也留在这里） |
-| Liao et al., PGBL, 2026 | `Feature-Synthesis/` |
-| Liu & Gryllias, 直升机 DeepSVDD, 2021 | 移出本树，见 `99-Inbox/` |
+| Roth et al., PatchCore, CVPR 2022 | `记忆与原型/` |
+| Deng & Li, Anomaly Detection via Reverse Distillation from One-Class Embedding, CVPR 2022 | [蒸馏](%E8%92%B8%E9%A6%8F/) |
+| Liu et al., SimpleNet, CVPR 2023 | `特征合成/` |
+| SuperSimpleNet | `特征合成/`（SimpleNet 同族；空夹也留在这里） |
+| Liao et al., PGBL, 2026 | `特征合成/` |
+| Liu & Gryllias, 直升机 DeepSVDD, 2021 | 移出本树，见 `99-待分类/` |
 
 蒸馏已归档原文，方法族串讲待编写。归一化流、VAE 和 VLM-AD 仍待补充代表论文与串讲。分布偏移属于第 2.5 节讨论的问题设定，将贯穿各方法族的比较。
 
-[综述目录](Survey/)收录 *Anomaly Detection: A Survey* 与 *A Unified Survey on Anomaly, Novelty, Open-Set, and Out-of-Distribution Detection: Solutions and Future Challenges*。两篇用于查阅概念与分类，不作为独立方法族。正式出版信息与归档版本差异见各自的 `sources.md`。
+[综述目录](%E7%BB%BC%E8%BF%B0/)收录 *Anomaly Detection: A Survey* 与 *A Unified Survey on Anomaly, Novelty, Open-Set, and Out-of-Distribution Detection: Solutions and Future Challenges*。两篇用于查阅概念与分类，不作为独立方法族。正式出版信息与归档版本差异见各自的 `sources.md`。
 
 ---
 
@@ -165,4 +165,4 @@
 2. 按第 3 节确定方法的建模假设，分析分布偏移会怎样影响正常与异常的区分。
 3. 按 [学习路径](../learning-path.md)进入已有正文或论文原文；单篇笔记规范见 [阅读草稿说明](../agent/deepdive.md)。
 
-若方法涉及源域到目标域的适配，同时阅读 [领域自适应总览](../04-Domain-Adaptation/problem-setting-and-overview.md)。需要分别说明如何迁移表示，以及如何用适配后的表示计算异常分数。
+若方法涉及源域到目标域的适配，同时阅读 [领域自适应总览](../04-%E9%A2%86%E5%9F%9F%E8%87%AA%E9%80%82%E5%BA%94/problem-setting-and-overview.md)。需要分别说明如何迁移表示，以及如何用适配后的表示计算异常分数。

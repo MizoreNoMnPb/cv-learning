@@ -1,7 +1,7 @@
 # 卷积详解：从数学、信号与系统到神经网络
 
 > 覆盖：连续与离散卷积 -> 互相关 -> 线性时不变系统 -> 频域滤波 -> 多通道卷积 -> $3\times3$ 特征提取 -> 下采样与通道扩张 -> 转置卷积与上采样 -> $1\times1$ 分类头 -> 像素级 Softmax。  
-> 关联阅读：[U-Net: Convolutional Networks for Biomedical Image Segmentation 精读](../02-Vision-Tasks/Segmentation/paper/%5BMICCAI%202015%5D%20U-Net%20-%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation/U-Net%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation.md)。
+> 关联阅读：[U-Net: Convolutional Networks for Biomedical Image Segmentation 精读](../02-%E5%9F%BA%E7%A1%80%E8%A7%86%E8%A7%89%E4%BB%BB%E5%8A%A1/%E5%9B%BE%E5%83%8F%E5%88%86%E5%89%B2/paper/%5BMICCAI%202015%5D%20U-Net%20-%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation/U-Net%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation.md)。
 
 ## 阅读建议
 
