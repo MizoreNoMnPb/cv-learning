@@ -1,0 +1,4 @@
+interface:
+  display_name: "组会论文精读"
+  short_description: "生成证据分层的八段式组会论文总结、逐字稿和问答准备"
+  default_prompt: "Use $read-paper-for-group-meeting to read this paper and write an evidence-grounded Chinese group-meeting note."

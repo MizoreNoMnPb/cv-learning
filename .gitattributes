@@ -1,0 +1,2 @@
+# Preserve archived PDF bytes and disable text diffs.
+*.pdf binary
