@@ -29,10 +29,10 @@
 
 - 缩写全大写：`VAE`、`VLM`、`OCC`、`AD`、`PEFT`、`CLIP`、`DA`。
 - 英文实词首字母大写，虚词小写（`and`、`or`、`for`、`of`、`to`、`with`），连字符保留。
-- 对照唯一表 `agent/path-glossary.md`。`master` 用 English 列，`zh` 用 `zh-dir` 列。
+- 分类目录清单见 [README](README.md#内容如何组织)；新增分类目录必须登记在那里。
 - `.md` 文件名与论文目录名不译、不改大小写规则。
 
-Markdown 正文：`master` 与 `zh` 都是中文。不要为语言再复制一套文件夹；`zh` 只换分类目录名。
+Markdown 正文用中文，分类目录名用英文。不要为语言复制第二套文件夹。
 
 ## 仓库结构
 
@@ -42,9 +42,8 @@ Markdown 正文：`master` 与 `zh` 都是中文。不要为语言再复制一�
 - `04-Domain-Adaptation/`：领域自适应。根上为问题设定；子目录为方法族及综述。空族保留。
 - `99-Inbox/`：收件箱，不是一个研究领域。
 - `learning-path.md`：覆盖范围与阅读顺序。
-- 分支：`master` 由人手写；`zh` 由 `agent/generate-zh.py` 从 `master` 生成。
 
-详细导航见 `learning-path.md`。分类变更后的同步与中文分支生成步骤见 [维护说明](agent/generate-zh.md)。
+详细导航见 `learning-path.md`；分类目录清单见 [README](README.md#内容如何组织)。
 
 仍跟本仓库走时：解释理论，不改分类目录树。Fork 且不再跟仓库目录合同走时：只改根目录 `fork-profile.md`，再执行 `agent/apply-profile.md`。
 

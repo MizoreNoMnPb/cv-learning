@@ -10,7 +10,7 @@
     sources.md
 ```
 
-- `<num>-<field>`、`<subfield>`：对照 `path-glossary.md` 的 English 列（Title-Case + 缩写全大写）。
+- `<num>-<field>`、`<subfield>`：分类目录，名称见 [README](../README.md#内容如何组织)（Title-Case + 缩写全大写）。
 - 论文目录名：查找键，给人类扫目录用。
 - `paper.pdf`：该目录内唯一 PDF，正式版本（会议/期刊优先于 arXiv）。
 - `sources.md`：书目与链接。文件夹名做不到的信息放这里。
