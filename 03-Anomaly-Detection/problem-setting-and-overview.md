@@ -32,10 +32,10 @@
 | 工业冷启动视觉 AD | 某产品的正常图像 | 未知缺陷（划痕、污渍、变形等），通常要像素定位 | Roth et al., PatchCore, CVPR 2022 | **主要研究对象** |
 | 机械健康监测 | 健康工况的振动/传感器序列 | 部件故障 | Liu & Gryllias, PHM 2021 | 原文在收件箱；单类分类主题可作比较 |
 
-> 出处：David M.J. Tax, Robert P.W. Duin. “Support Vector Data Description.” *Machine Learning*, 54(1):45–66, 2004。
-> 出处：Lukas Ruff, Robert A. Vandermeulen, Nico Görnitz, Lucas Deecke, Shoaib A. Siddiqui, Alexander Binder, Emmanuel Müller, Marius Kloft. “Deep One-Class Classification.” ICML, 2018。公开版实验为 MNIST、CIFAR-10 与 GTSRB 对抗样本，不是 MVTec。
+> 出处：David M.J. Tax, Robert P.W. Duin. “Support Vector Data Description.” *Machine Learning*, 54(1):45–66, 2004。数据描述与球形边界见归档 PDF 第 1–3 页（出版页 45–47）。
+> 出处：Lukas Ruff, Robert A. Vandermeulen, Nico Görnitz, Lucas Deecke, Shoaib A. Siddiqui, Alexander Binder, Emmanuel Müller, Marius Kloft. “Deep One-Class Classification.” ICML, 2018。归档 PDF 第 6–8 页的实验为 MNIST、CIFAR-10 与 GTSRB 对抗样本，不是 MVTec。
 > 出处：Karsten Roth, Latha Pemula, Joaquin Zepeda, Bernhard Schölkopf, Thomas Brox, Peter Gehler. “Towards Total Recall in Industrial Anomaly Detection.” CVPR, 2022。第 1–2 页将任务写成 cold-start industrial anomaly detection：训练只含正常图像，测试要图像级分数与像素热图。
-> 出处：Chenyu Liu, Konstantinos Gryllias. “A Deep Support Vector Data Description Method for Anomaly Detection in Helicopters.” PHM Society European Conference, 2021，第 234–237 页。输入是 Airbus 直升机加速度计序列，不是光学表面图。
+> 出处：Chenyu Liu, Konstantinos Gryllias. “A Deep Support Vector Data Description Method for Anomaly Detection in Helicopters.” PHM Society European Conference, 2021，归档 PDF 第 1、4 页。输入是 Airbus 直升机加速度计序列，不是光学表面图。
 
 **[分析判断]** 同一种建模目标可以用于图像或振动信号，但输入、异常含义和评估方式仍需分别说明。本目录重点讨论光学工业图像。
 
@@ -55,6 +55,8 @@
 | 全监督缺陷分类 | 缺陷类别集合固定且有标 | 固定类别的监督检测或分割；应与未知缺陷的识别任务区分 |
 
 **[业界共识]** 工业论文里的 “unsupervised anomaly detection” 多数等于「只用好品」，不是聚类意义上的无监督。
+
+**[分析判断]** 上表的名称不是互斥标签，也不是各领域统一的命名标准：例如，少量缺陷的标签还可以只有图像级，因而同时属于少量异常监督和弱定位监督。比较论文时应直接记录“正常/异常样本各有多少、标签到图像还是像素、哪些标签用于模型选择”，不要只记录“半监督”三个字。
 
 **[论文发现]** PatchCore 的训练集只含正常图像，测试集含正常与异常，并同时要图像级与像素级输出。CVPR 2022 公开版第 1–3 页。
 
@@ -89,7 +91,7 @@
 | 域关系 | 训练 / 适配 | 测试 | 说明 |
 |---|---|---|---|
 | 同分布 | 该产品、该相机、该光照的好品 | 同一产品流 | 经典 MVTec 主表 |
-| 同质偏移 | 源产品好品（可有标或仅正常）+ **目标好品适配集** | 目标产品 | 本库重点：利用确认正常的目标样本适配 |
+| 有目标正常样本的同质适配 | 源产品好品（可有标或仅正常）+ **目标好品适配集** | 目标产品 | 本库重点；“同质”指特征空间相同，不表示偏移轻微或任务一定可迁移 |
 | 无目标样本 | 多个源产品 | 未见过的新产品 | 领域泛化，安排在后续阶段 |
 | 测试流在线更新 | 用当前测试批次更新统计量或参数 | 产线混合流 | 测试时适应；若将缺陷误当作正常样本更新，可能降低异常识别能力 |
 
@@ -126,17 +128,17 @@
 |---|---|---|---|---|
 | OCC / 超球体 | `OCC/` | 用超球体描述正常特征的接受范围 | 球形范围可能不足以描述复杂的正常分布；语义分类不能代替局部定位 | 是 |
 | 特征记忆库与原型 | `Memory-Prototype/` | 正常局部特征可被有限样本（或原型）覆盖；用到正常参考特征的距离评分 | 局部比较忽略逻辑关系；特征提取器变化后参考特征失配；子集选择遗漏少见正常样本 | 是 |
-| 特征空间合成 + 判别 | `Feature-Synthesis/` | 在特征里加噪声/合成异常，学一个可分边界 | 合成分布与真实缺陷有差异；分布偏移可能影响判别边界 | 是 |
+| 合成异常与重建 | [Synthesis-and-Reconstruction/](Synthesis-and-Reconstruction/) | 用合成异常训练判别边界，或用正常样本学习重建；两种目标需分别比较 | 合成分布与真实缺陷有差异；重建模型也可能重构缺陷 | 是 |
 | 学生–教师蒸馏 | `Distillation/` | 教师对正常的表示，学生学得会；异常处师生不一致 | 学生也能拟合异常处的教师输出，导致差异不足 | 是 |
-| 归一化流 | `Normalizing-Flow/` | 正常可用可逆变换接到简单密度，以低似然作为异常线索 | 分布外样本也可能获得高似然 | 是 |
-| VAE | `VAE/` | 用潜变量模型描述正常样本，以重构误差或 ELBO 构造分数 | 缺陷也可能被准确重构；ELBO 不等于精确似然 | 是 |
+| 归一化流 | [Flow-Based/](Flow-Based/) | 正常可用可逆变换接到简单密度，以低似然作为异常线索 | 分布外样本也可能获得高似然 | 是 |
+| VAE（重建主题内比较） | [Synthesis-and-Reconstruction/](Synthesis-and-Reconstruction/) | 用潜变量模型描述正常样本，以重构误差或 ELBO 构造分数 | 缺陷也可能被准确重构；ELBO 不等于精确似然 | 代表论文待补 |
 | VLM-AD | `VLM-AD/` | 语言–图像预训练提供「正常/缺陷」可迁移先验 | 细粒度工业纹理与自然语言对不齐；零样本 ≠ 已校准 | 是 |
-| 其他自编码器或生成对抗重建方法 | （后续） | 正常可重构、异常不可 | 与 VAE 近，但不并进 VAE 族 | 否 |
-| Mean Teacher | 不在本树 | 通过教师与学生预测的一致性利用未标注数据 | 见 `04-Domain-Adaptation/Mean-Teacher/`；`MT+AD` 后续只做链接 | 否 |
+| 其他自编码器或生成对抗重建方法 | [Synthesis-and-Reconstruction/](Synthesis-and-Reconstruction/)（后续） | 正常可重构、异常不可 | 与 VAE 比较时须区分确定性重建和概率建模 | 否 |
+| Mean Teacher（平均教师） | [跨域阅读入口](../04-Domain-Adaptation/Mean-Teacher/) | 以参数滑动平均的教师预测约束学生，利用未标注数据 | 需另行说明任务设定；不是独立的异常评分规则 | 否 |
 
 **[分析判断]** 比较密度建模方法时，应区分归一化流通过变量替换计算的似然，与 VAE 使用的 ELBO。比较记忆库方法时，则需要说明参考特征如何保存、如何计算距离。
 
-视觉语言模型异常检测是后续需要补充原文与串讲的主题。相关基础见 [CLIP](../02-Vision-Tasks/clip.md)；开放词汇目标检测的阅读入口见 [视觉语言先验](../04-Domain-Adaptation/VLM-Prior/pointer.md)。
+视觉语言模型异常检测已有原文，方法族串讲待编写。相关基础见 [CLIP](../02-Vision-Task-Foundations/clip.md)；开放词汇目标检测的阅读入口见 [视觉语言先验](../04-Domain-Adaptation/VLM-Prior/pointer.md)。
 
 ---
 
@@ -148,14 +150,15 @@
 | Ruff et al., Deep SVDD, ICML 2018 | `OCC/` |
 | Roth et al., PatchCore, CVPR 2022 | `Memory-Prototype/` |
 | Deng & Li, Anomaly Detection via Reverse Distillation from One-Class Embedding, CVPR 2022 | [蒸馏](Distillation/) |
-| Liu et al., SimpleNet, CVPR 2023 | `Feature-Synthesis/` |
-| SuperSimpleNet | `Feature-Synthesis/`（SimpleNet 同族；空夹也留在这里） |
-| Liao et al., PGBL, 2026 | `Feature-Synthesis/` |
+| SimpleNet、SuperSimpleNet 及其扩展 | [合成与重建](Synthesis-and-Reconstruction/) |
+| PGBL | [记忆库与原型](Memory-Prototype/)；也使用合成目标，方法族不是互斥标签 |
+| NICE、Real NVP | [归一化流](Flow-Based/)；流模型基础原文，不等于已完成工业异常检测串讲 |
+| AnomalyCLIP、InCTRL、One-for-All、PromptAD | [视觉语言模型异常检测](VLM-AD/)；正式题名与版本以各 `sources.md` 为准 |
 | Liu & Gryllias, 直升机 DeepSVDD, 2021 | 移出本树，见 `99-Inbox/` |
 
-蒸馏已归档原文，方法族串讲待编写。归一化流、VAE 和 VLM-AD 仍待补充代表论文与串讲。分布偏移属于第 2.5 节讨论的问题设定，将贯穿各方法族的比较。
+蒸馏、归一化流与 VLM-AD 均已有原文，方法族串讲待编写；VAE 的代表原文与专题仍待补充。分布偏移属于第 2.5 节讨论的问题设定，将贯穿各方法族的比较。
 
-[综述目录](Survey/)收录 *Anomaly Detection: A Survey* 与 *A Unified Survey on Anomaly, Novelty, Open-Set, and Out-of-Distribution Detection: Solutions and Future Challenges*。两篇用于查阅概念与分类，不作为独立方法族。正式出版信息与归档版本差异见各自的 `sources.md`。
+[综述目录](Survey/)收录 *Anomaly Detection: A Survey*、*A Unified Survey on Anomaly, Novelty, Open-Set, and Out-of-Distribution Detection: Solutions and Future Challenges*，以及 *Normalizing Flows: An Introduction and Review of Current Methods*。前两篇用于查阅异常相关概念与分类，后一篇补充密度建模基础；综述不作为独立方法族。正式出版信息与归档版本差异见各自的 `sources.md`。
 
 ---
 

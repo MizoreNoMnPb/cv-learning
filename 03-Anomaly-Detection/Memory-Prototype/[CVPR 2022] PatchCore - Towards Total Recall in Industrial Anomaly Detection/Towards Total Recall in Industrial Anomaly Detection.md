@@ -1,6 +1,6 @@
 # PatchCore 精读：从样本 Memory Bank 到参数化记忆
 
-> **阅读草稿**：原文解读与应用拓展仍需核验；拓展设想不作为原论文结论。
+> [agent-generated/unverified] **阅读草稿**：原文解读与应用拓展仍需核验；拓展设想不作为原论文结论。
 
 > 原论文：*Towards Total Recall in Industrial Anomaly Detection*，CVPR 2022
 > 归档原文：[PDF](paper.pdf)
@@ -66,7 +66,7 @@ PatchCore 第 7 页的 learned proxy 实验，才是它在自身检索框架内�
 ### 1.1 问题设定
 
 > OCC（One-Class Classification，单类分类）：训练阶段只观察一个类别，这里是正常样本，测试时识别偏离该类别的样本。
-> OOD（Out-of-Distribution，分布外）：测试样本位于训练分布支撑集之外。
+> OOD（Out-of-Distribution，分布外）：测试数据来自与参考训练分布不同的分布。PatchCore 在第 1 页用“正常分布支撑集之外”说明其异常识别目标；这不能作为所有 OOD 问题的统一定义，例如均值不同的两个高斯分布可以具有相同的支撑集。
 
 **[论文发现]** PatchCore 处理 cold-start industrial anomaly detection（冷启动工业异常检测）：
 
@@ -115,7 +115,7 @@ PatchCore 的三个对应设计是：
 1. 用同一个冻结网络提取测试 patch embedding。
 2. 对每个测试 patch，在 $\mathcal M_C$ 中搜索最近邻。
 3. 最近邻距离作为该 patch 的异常分数。
-4. 全图最大的 patch 分数作为图像级异常分数。
+4. 先取全图最大的 patch 分数，再按原论文 Equation (7) 做邻域重加权，得到图像级异常分数（见第 5.2 节）。
 5. 将 patch 分数还原为空间网格，双线性插值到输入大小，再做高斯平滑。
 
 **[分析判断]** PatchCore 没有显式“正常/异常分类器”。它实现的是：
@@ -191,6 +191,8 @@ $$
 **[论文发现]** 默认 $s=1$；把 $s$ 提高到 2、3 会降低空间覆盖和定位分辨率，图像 AUROC
 分别降到 97.6%、96.8%。[1, pp.3,7]
 
+> AUROC（Area Under the Receiver Operating Characteristic Curve，受试者工作特征曲线下面积）：把异常视为正类，在不同阈值下比较检出率与正常误报率，汇总异常分数的排序能力；它不直接给出可用的决策阈值。
+
 因此，用 stride 缩小 bank 和用 coreset 缩小 bank 不等价：
 
 - stride 先规则丢弃空间位置，某些局部模式从未进入候选集；
@@ -243,15 +245,17 @@ $$
 
 ### 4.1 目标函数
 
-**[论文发现]** PatchCore 选择：[1, p.4, Eq.(5)]
+**[论文发现]** PatchCore 的 Equation (5) 写出最坏覆盖目标，Algorithm 1 另给定保留数量。将两处合写，并把预算明确为固定的 $K$，得到：[1, pp.4-5, Eq.(5), Algorithm 1]
 
 $$
 \mathcal M_C^*
-=\arg\min_{\mathcal M_C\subset\mathcal M}
+=\arg\min_{\substack{\mathcal M_C\subseteq\mathcal M\\|\mathcal M_C|=K}}
 \max_{m\in\mathcal M}
 \min_{n\in\mathcal M_C}
 \lVert m-n\rVert_2.
 $$
+
+**[数学推导]** 固定预算不可省略：若允许选择整个 $\mathcal M$，每个 $m$ 都可选自身为最近邻，目标值就是 0，不能表达压缩问题。这里的 $K$ 对应原算法的 coreset target $l$。
 
 从内向外读：
 
@@ -293,9 +297,9 @@ README 推荐 approximate greedy coreset，并以 10 个随机起点近似初始
 
 ### 4.4 为什么随机采样明显更差
 
-**[数学推导]** 随机采样优化的是平均意义上的抽样代表性，不直接约束最坏覆盖半径。若正常分布
-包含一个占比很小的模式，其被随机遗漏的概率会很高；farthest-first 则会因为该模式距离已有中心远，
-主动选择它。
+**[数学推导]** 随机采样不直接优化覆盖半径。若一种正常模式的概率为 $\rho$，独立有放回抽取 $K$ 次时，每次未抽中的概率均为 $1-\rho$，全部遗漏的概率为 $(1-\rho)^K$。因此，小占比模式在有限预算下可能被遗漏。
+
+**[分析判断]** farthest-first 会优先选择距离已有中心较远的点，因此有机会覆盖这种稀有模式；是否选到仍取决于预算和其他模式的距离，不能表述为无条件保证。
 
 这正是“主流正常模式”和“稀有但合格的正常模式”并存时，工业误报问题的核心。
 
@@ -357,8 +361,10 @@ $$
 $$
 0\leq w<1,
 \qquad
-0\leq s<s^*.
+0\leq s\leq s^*.
 $$
+
+**[数学推导]** 当 $s^*>0$ 时，上式右侧严格小于；当测试特征恰好命中记忆特征而 $s^*=0$ 时，$s=0$，不能写成 $s<s^*$。这里沿用邻域包含 $m^*$ 的约定。
 
 所以原文所说的“increase the anomaly score”不是让 $s$ 超过 $s^*$，而是：与位于稠密正常簇中的
 匹配相比，若 $m^*$ 本身是孤立、稀有的正常点，则其他支持点到 $q^*$ 更远，分母增大，$w$ 更接近 1，
@@ -631,7 +637,7 @@ augmentation: none
 |      2021 | DAAD      | 多尺度 block-wise memory           | 与编码器、解码器反向传播          | 在 MVTec 上直接验证可学习工业 memory     |
 |      2022 | PatchCore | coreset 样本库                     | 非参数；另做 learned proxy 消融   | learned proxy 不如覆盖导向 coreset       |
 |      2022 | CFA       | 固定规模中心 bank                  | 首图 K-means，逐图 EMA            | bank 非梯度；梯度训练 patch descriptor   |
-| 2022/2023 | SoftPatch | 样本 + outlier weight              | 去噪、coreset、固定权重           | 解决污染，不做参数化                     |
+|      2022 | SoftPatch | 样本 + outlier weight              | 去噪、coreset、固定权重           | 解决污染，不做参数化                     |
 |      2023 | PMB       | 分区、多层 memory units            | 与 AE 目标联合学习                | 工业/视觉重建式参数化 memory             |
 | 2022/2026 | AnoMem    | 多尺度 Hopfield 权重               | 对比学习联合优化                  | 参数化、多尺度，但不是工业专用证据       |
 |      2023 | LeMO      | $K=10$ prototype vectors         | 对比目标 + 重分配/聚类更新        | 最接近在线工业参数化 PatchCore           |
@@ -764,7 +770,7 @@ one-class、半监督和人脸攻击检测，不是 MVTec 工业证据。[8, pp.
 2. **稀有正常模式丢失**：平均损失被高频模式主导，尾部正常模式容易变成误报。
 3. **prototype collapse**：多个槽位收敛到相同模式，名义容量大、有效容量小。
 4. **异常污染**：在线更新时若异常被当正常写入，后续同类缺陷会变成近邻。
-5. **特征坐标系漂移**：adapter 或 backbone 更新后，旧 bank 与新特征不再处于同一表示空间。
+5. **特征参照失配**：adapter 或 backbone 更新而没有维护表示关系时，旧 bank 可能与新特征失配；若目标映射专门对齐到固定源 bank，则应保留这一固定参照。
 6. **小样本过拟合**：工业类别每类正常图不多，额外参数未必比冻结预训练特征稳定。
 7. **复现复杂度**：结果开始依赖初始化、学习率、更新顺序、原型利用率和停止条件。
 
@@ -773,7 +779,7 @@ one-class、半监督和人脸攻击检测，不是 MVTec 工业证据。[8, pp.
 PatchCore coreset 直接近似：
 
 $$
-\min_{\mathcal M_C}
+\min_{\substack{\mathcal M_C\subseteq\mathcal M\\|\mathcal M_C|=K}}
 \max_m\min_n\lVert m-n\rVert_2,
 $$
 
@@ -797,7 +803,7 @@ $$
 
 | 组 | Bank                                       | 特征       | 目的                             |
 | -- | ------------------------------------------ | ---------- | -------------------------------- |
-| A  | 完整 bank                                  | 冻结       | 测上限、内存和延迟               |
+| A  | 完整 bank                                  | 冻结       | 建立未压缩参照；不是性能上界     |
 | B  | random 10% / 1%                            | 冻结       | 验证覆盖的重要性                 |
 | C  | greedy coreset 10% / 1%                    | 冻结       | PatchCore 主基线                 |
 | D  | K-means / FINCH，相同向量数                | 冻结       | 区分均值原型与 k-center 覆盖     |
@@ -811,7 +817,7 @@ E 和 F 必须分开，否则无法区分“公式符号问题”和“重构目
 ### 11.2 公平比较约束
 
 - 各方法使用相同 backbone、层级、输入分辨率、embedding 维度和 bank 向量数。
-- 每次特征提取器发生更新，都必须用同一版本特征重建或同步更新 bank。
+- 共同更新正常参考与测试表示时，应重建或同步 bank；若只学习目标映射、明确对齐到固定源 bank，则保留源参照。RoDA 原文采用后一种协议，不能把重建写成普遍规则。[15, p.5]
 - 除标准 MVTec AD 外，加入正常训练污染、目标域光照漂移和 few-shot 三种设置。
 - 至少运行多个随机种子；参数化 bank 对初始化更敏感。
 - 不只报告 AUROC，还报告固定召回率下误报、每类最差结果和正常尾部距离。
@@ -856,7 +862,7 @@ Coverage radius 与 mean quantization error 必须同时看：前者对应 Patch
 
 > [1] Karsten Roth, Latha Pemula, Joaquin Zepeda, Bernhard Schölkopf, Thomas Brox, Peter Gehler.
 > “Towards Total Recall in Industrial Anomaly Detection.” *IEEE/CVF Conference on Computer Vision and
-> Pattern Recognition (CVPR)*, pp.14298-14308, 2022. DOI: 10.1109/CVPR52688.2022.01392.
+> Pattern Recognition (CVPR)*, IEEE 书目页码 pp.14298-14308, 2022. DOI: 10.1109/CVPR52688.2022.01392；CVF 开放版印刷页码为 pp.14318-14328。
 > 本文使用 arXiv:2106.08265v2 的公开分页：动机 pp.1-3；Equation (1)-(4) pp.3-4；Equation (5)、
 > Algorithm 1、Equation (6)-(7) pp.4-5；主结果 p.6；Figure 5 与 Equation (8)、速度和 ensemble p.7；
 > MTD、mSTC 与限制 p.8；实现细节 p.12。
@@ -900,10 +906,10 @@ Coverage radius 与 mean quantization error 必须同时看：前者对应 Patch
 > 重建目标与实验 p.5-6。
 
 > [8] Loic Jezequel, Ngoc-Son Vu, Jean Beaudet, Aymeric Histace.
-> “Anomaly Detection via Multi-Scale Contrasted Memory.” arXiv:2211.09041v2, pp.1-10, 2022.
-> 该工作扩展版以 “Unified Anomaly Detection via Multi-Scale Contrasted Memory” 发表于
-> *IEEE Transactions on Image Processing*, vol.35, pp.2802-2815, 2026,
-> DOI: 10.1109/TIP.2026.3663923。
+> “Anomaly Detection via Multi-Scale Contrasted Memory.” arXiv:2211.09041v2, pp.1-10, 2023（v1 首发于 2022）。
+> 扩展版书目为：Loïc Jézéquel, Jean Beaudet, Aymeric Histace, Ngoc-Son Vu. “Unified Anomaly Detection via Multi-Scale Contrasted Memory.”
+> *IEEE Transactions on Image Processing*, vol.35, pp.2802-2815, 2026。
+> [DOI: 10.1109/TIP.2026.3663923](https://doi.org/10.1109/TIP.2026.3663923)。扩展版作者顺序与预印本不同，不能混用；本文方法和实验边界仍对应所引预印本。
 > 本文引用公开预印本：Hopfield memory 定义 p.2；多尺度对比 memory 与防坍塌 pp.3-5。
 
 > [9] Han Gao, Huiyuan Luo, Fei Shen, Zhengtao Zhang.
@@ -915,7 +921,7 @@ Coverage radius 与 mean quantization error 必须同时看：前者对应 Patch
 > [10] Xi Jiang, Jianlin Liu, Jinbao Wang, Qian Nie, Kai Wu, Yong Liu, Chengjie Wang, Feng Zheng.
 > “SoftPatch: Unsupervised Anomaly Detection with Noisy Data.”
 > *Advances in Neural Information Processing Systems 35 (NeurIPS 2022)*, pp.15433-15445, 2022.
-> arXiv:2403.14233v1 public version pp.1-17.
+> [NeurIPS 正式论文](https://proceedings.nips.cc/paper_files/paper/2022/file/637a456d89289769ac1ab29617ef7213-Paper-Conference.pdf)；[arXiv:2403.14233v1](https://arxiv.org/abs/2403.14233v1) 于 2024 年上传，PDF 共 17 页。上列作者按所引 PDF 首页；会议网页将 Qian Nie 记为 Qiang Nie，arXiv 摘要页的作者列表也与该版本 PDF 首页不同，引用时应明确采用的版本。
 > 本文引用位置：污染问题和 patch 去噪 pp.1-2；weighted coreset pp.4-6，Equation (1)-(8)。
 
 > [11] Chao Huang, Zhao Kang, Hong Wu. “A Prototype-Based Neural Network for Image Anomaly Detection
@@ -927,6 +933,10 @@ Coverage radius 与 mean quantization error 必须同时看：前者对应 Patch
 > “ProCon: Projection-Consistency Memory for Training-Free Anomaly Detection.”
 > arXiv:2607.04894v1, 2026.
 > 本文仅引用第 1 页摘要中的 soft projection、training-free 设定和公开代码声明。
+
+> [15] Jingyi Liao, Xun Xu, Yongyi Su, Rong-Cheng Tu, Yifan Liu, Dacheng Tao, Xulei Yang.
+> “Robust Distribution Alignment for Industrial Anomaly Detection under Distribution Shift.”
+> arXiv:2503.14910v1, 2025。第 5 页 Algorithm 1 保留输入的源记忆库，更新目标编码器后仍在该参照上评分。[原文](https://arxiv.org/pdf/2503.14910v1)
 
 ## 代码与网络资源
 

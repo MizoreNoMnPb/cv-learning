@@ -31,13 +31,13 @@
 | [卷积](01-Foundations/convolution.md) | 局部加权求和、多通道特征、输出尺寸与感受野 | 已有正文 |
 | [损失函数](01-Foundations/losses.md) | 预测量与标签如何进入损失，损失如何影响梯度 | 已有正文 |
 | [注意力](01-Foundations/attention.md) | 查询、键、值的关系，缩放与多头计算 | 已有正文 |
-| [交叉注意力](02-Vision-Tasks/cross-attention.md) | 两个序列之间如何传递信息，输出形状如何确定 | 已有正文 |
-| [R-CNN 系列](02-Vision-Tasks/rcnn.md)与 [DETR 系列](02-Vision-Tasks/DETR.md) | 从候选区域到集合预测的目标检测方法 | 已有正文 |
-| [CLIP](02-Vision-Tasks/clip.md) | 图文对比学习、零样本分类与提示学习 | 已有正文 |
-| [U-Net 精读](<02-Vision-Tasks/Segmentation/paper/[MICCAI 2015] U-Net - Convolutional Networks for Biomedical Image Segmentation/U-Net Convolutional Networks for Biomedical Image Segmentation.md>) | 编码器、解码器与跳跃连接 | 阅读草稿 |
+| [交叉注意力](02-Vision-Task-Foundations/cross-attention.md) | 两个序列之间如何传递信息，输出形状如何确定 | 已有正文 |
+| [R-CNN 系列](02-Vision-Task-Foundations/rcnn.md)与 [DETR 系列](02-Vision-Task-Foundations/DETR.md) | 从候选区域到集合预测的目标检测方法 | 已有正文 |
+| [CLIP](02-Vision-Task-Foundations/clip.md) | 图文对比学习、零样本分类与提示学习 | 已有正文 |
+| [U-Net 精读](<02-Vision-Task-Foundations/Segmentation/[MICCAI 2015] U-Net - Convolutional Networks for Biomedical Image Segmentation/U-Net Convolutional Networks for Biomedical Image Segmentation.md>) | 编码器、解码器与跳跃连接 | 阅读草稿 |
 | [LoRA 精读](<01-Foundations/PEFT/[ICLR 2022] LoRA - Low-Rank Adaptation of Large Language Models/lora.md>) | 用低秩矩阵表示参数更新，以及它与迁移目标的关系 | 阅读草稿 |
 
-补充查阅：[传统视觉](02-Vision-Tasks/classical-cv.md)、[YOLO 系列](02-Vision-Tasks/yolo.md)、[扩散模型](02-Vision-Tasks/diffusion-models.md)。概率工具与“从似然推导损失”的完整串讲尚待编写，目前的损失文档主要用于公式与适用条件查阅。
+补充查阅：[传统视觉](02-Vision-Task-Foundations/classical-cv.md)、[YOLO 系列](02-Vision-Task-Foundations/yolo.md)、[扩散模型](02-Vision-Task-Foundations/diffusion-models.md)。概率工具与“从似然推导损失”的完整串讲尚待编写，目前的损失文档主要用于公式与适用条件查阅。
 
 ## 4. 从异常检测读到领域自适应
 
@@ -50,7 +50,7 @@
 | 3 | [对抗方法](04-Domain-Adaptation/Adversarial/)：结合领域自适应总览阅读领域对抗神经网络与领域分离网络的论文 | 已有论文及单篇草稿；方法族串讲待编写 |
 | 4 | [平均教师方法](04-Domain-Adaptation/Mean-Teacher/)：先理解半监督一致性，再阅读其跨域用途 | 仅有论文 |
 | 5 | [伪标签方法](04-Domain-Adaptation/Pseudo-Label/)：阅读自训练与源数据不可用时的适配方法 | 仅有论文 |
-| 6 | [合成与重建方法](03-Anomaly-Detection/Synthesis-Reconstruction/)：比较合成异常与真实缺陷的关系 | 已有部分论文；方法族串讲待编写 |
+| 6 | [合成与重建方法](03-Anomaly-Detection/Synthesis-and-Reconstruction/)：比较合成异常与真实缺陷的关系 | 已有论文；方法族串讲待编写 |
 | 7 | [蒸馏方法](03-Anomaly-Detection/Distillation/)：阅读反向蒸馏论文，比较教师与学生的特征 | 仅有论文 |
 
 平均教师相关论文集中在领域自适应目录；它们与异常检测的关系将在后续串讲中通过链接说明。
@@ -67,11 +67,26 @@
 | 异常检测 | 整理单类分类、记忆库与原型、合成与重建和 [蒸馏](03-Anomaly-Detection/Distillation/)；补充 [流模型](03-Anomaly-Detection/Flow-Based/)和 [视觉语言模型异常检测](03-Anomaly-Detection/VLM-AD/)；在问题总览与各方法族中讨论分布偏移 |
 | 领域自适应 | 先整理对抗方法、平均教师与伪标签方法，再补充其余已有论文的方法族 |
 
-蒸馏已归档反向蒸馏原文，串讲待编写；流模型目前只有占位内容；视觉语言模型异常检测已有论文原文，方法族串讲待编写。领域自适应中的对齐、差异最小化、重建与解耦也仍待补充论文与串讲。
+蒸馏已归档反向蒸馏等原文，串讲待编写；流模型已归档 NICE 与 Real NVP 两篇密度建模基础论文，但尚无工业异常检测流模型方法的专门串讲；视觉语言模型异常检测已有论文原文，方法族串讲待编写。领域自适应中的对齐、差异最小化、重建与解耦仍只有占位文档，尚待补充对应论文与串讲。
 
 分布偏移作为贯穿各方法族的问题设定，入口见 [异常检测总览第 2.5 节](03-Anomaly-Detection/problem-setting-and-overview.md#25-域关系正常变化与缺陷如何区分)。建议在阅读对抗方法后，结合领域自适应总览讨论对齐目标与异常识别能力之间的关系。
 
 逻辑异常、少样本扩展，以及领域泛化和测试时适应安排在后续阶段；后两项使用现有的 [新问题设定目录](04-Domain-Adaptation/New-Problem-Settings/)。系统与推理论文暂存在 [收件箱](99-Inbox/)，不进入首批阅读范围。
+
+### 优先补齐的写作链
+
+以下顺序是 **[分析判断]**，按对“分布偏移下的工业异常检测”主线的帮助安排；均为待编写内容，不代表已完成论文核验。
+
+| 优先顺序 | 写作主题 | 完成后应能回答的问题 |
+|---|---|---|
+| 1 | 正常数据、验证集与异常检测评价 | 阈值由哪些数据决定？图像级排序、像素定位与固定误报率下的召回分别回答什么问题？如何避免用测试异常选择阈值？ |
+| 2 | 单类分类 → 局部特征记忆库与原型 | 从正常样本的接受区域到局部最近邻距离，假设怎样改变？特征空间改变时，原有记忆库为什么需要重新检查？ |
+| 3 | 分布偏移与目标域污染 | 正常外观变化、缺陷变化与目标数据混入异常如何区分？怎样设计同域、跨域和适配后的比较？ |
+| 4 | 对抗适配 → 平均教师 → 伪标签 | 源域和目标域各能使用哪些信息？对齐、预测一致性与伪标签分别优化什么，为什么不能直接当作异常识别成功的证据？ |
+| 5 | 合成、重建、蒸馏与流模型比较 | 各路线依赖什么正常性假设？训练目标与异常分数之间是否一致？ |
+| 6 | 视觉语言模型与少样本异常检测 | “零样本”或“少样本”具体限制哪一类数据？提示学习、预训练知识和参考正常图像如何进入方法？ |
+
+基础内容按上述写作需要补充概率与似然、距离度量、协方差估计、归一化及评价指标；不以扩充模型名称清单作为完成标准。
 
 ## 6. 目录与维护规则
 

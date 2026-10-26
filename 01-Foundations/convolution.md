@@ -1,7 +1,7 @@
 # 卷积详解：从数学、信号与系统到神经网络
 
 > 覆盖：连续与离散卷积 -> 互相关 -> 线性时不变系统 -> 频域滤波 -> 多通道卷积 -> $3\times3$ 特征提取 -> 下采样与通道扩张 -> 转置卷积与上采样 -> $1\times1$ 分类头 -> 像素级 Softmax。  
-> 关联阅读：[U-Net: Convolutional Networks for Biomedical Image Segmentation 精读](../02-Vision-Tasks/Segmentation/paper/%5BMICCAI%202015%5D%20U-Net%20-%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation/U-Net%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation.md)。
+> 关联阅读：[U-Net: Convolutional Networks for Biomedical Image Segmentation 精读](../02-Vision-Task-Foundations/Segmentation/%5BMICCAI%202015%5D%20U-Net%20-%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation/U-Net%20Convolutional%20Networks%20for%20Biomedical%20Image%20Segmentation.md)。
 
 ## 阅读建议
 
@@ -280,7 +280,7 @@ $$
 
 这不是类比，而是从 LTI 两条定义推出的结果：**任何 LTI 系统都可以由输入与冲激响应的卷积描述**。
 
-对图像而言，若一个二维滤波器在所有位置使用相同规则，那么卷积核就是它的二维冲激响应。
+对图像而言，若二维滤波器既线性又平移不变，其卷积核就是二维冲激响应。仅在所有位置使用相同规则还不够：例如中值滤波满足局部规则共享，却不是线性卷积。
 
 ### 2.2 频域中的卷积定理
 
@@ -410,7 +410,7 @@ $$
 
 - 单个固定的线性卷积层可以用滤波器和频率响应分析；
 - 经过训练的卷积核可能表现出低通、带通、方向选择或通道组合倾向；
-- 多层非线性 CNN 学到的是输入相关的分段线性映射，不能简化为一个固定 Sobel 或高斯滤波器。
+- 由卷积与 ReLU 等分段线性运算组成、且归一化统计固定的 CNN，可表示为输入相关的分段仿射映射，不能简化为一个固定 Sobel 或高斯滤波器。
 
 ### 2.5 边界条件是运算定义的一部分
 
@@ -938,10 +938,7 @@ $$
 
 #### stride-2 convolution
 
-例如：
-
-
-当 $H$ 为偶数时：
+例如，取 $K=3,P=1,S=2,D=1$。当 $H$ 为偶数时：
 
 $$
 H_{\text{out}}
@@ -975,8 +972,7 @@ $$
 
 ### 5.2 通道增加不是下采样的结果
 
-下面两个操作完全可以独立设置：
-
+例如，输入 $[B,C,H,W]$ 可用 stride 2、$C$ 个输出核得到 $[B,C,H/2,W/2]$，也可用 stride 1、$2C$ 个输出核得到 $[B,2C,H,W]$（高宽为偶数且采用相应填充）。前者只减小空间尺寸，后者只增加通道。
 
 stride 决定 $H,W$，卷积核数量决定 $C_{\text{out}}$。二者同时变化只是常见架构约定，不存在“面积缩小后信息自动进入通道”的机制。
 

@@ -21,7 +21,7 @@ $$\operatorname{CrossCorr}(I, K)(i, j) = \sum_{m} \sum_{n} I(i+m, j+n) \cdot K(m
 |--------|---|------|
 | **均值滤波** | $\frac{1}{9}\begin{pmatrix}1&1&1\\1&1&1\\1&1&1\end{pmatrix}$ | 去噪（但会模糊边缘） |
 | **高斯滤波** | $\frac{1}{16}\begin{pmatrix}1&2&1\\2&4&2\\1&2&1\end{pmatrix}$ | 去噪 + 保留更多结构 |
-| **Sobel (水平)** | $\begin{pmatrix}-1&0&1\\-2&0&2\\-1&0&1\end{pmatrix}$ | 水平边缘检测 |
+| **Sobel（$x$ 方向梯度）** | $\begin{pmatrix}-1&0&1\\-2&0&2\\-1&0&1\end{pmatrix}$ | 比较左右亮度，主要响应垂直边缘 |
 | **Laplacian** | $\begin{pmatrix}0&1&0\\1&-4&1\\0&1&0\end{pmatrix}$ | 全方向边缘检测 |
 
 ### 1.3 高斯滤波的核心性质
@@ -29,7 +29,7 @@ $$\operatorname{CrossCorr}(I, K)(i, j) = \sum_{m} \sum_{n} I(i+m, j+n) \cdot K(m
 $$G(x, y) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}}$$
 
 - **可分离**：2D 高斯 = 两个 1D 高斯卷积 → 计算量从 $O(k^2)$ 降到 $O(2k)$
-- $\sigma$ 越大 → 模糊越强 → 去噪越好但细节丢失越多
+- $\sigma$ 增大通常带来更强平滑，同时损失细节；不能不考虑噪声类型就判断“去噪更好”。
 - Canny 边缘检测的第一步就是高斯滤波
 
 ### 1.4 卷积输出尺寸公式
@@ -66,12 +66,12 @@ $$H_{out} = \left\lfloor \frac{H_{in} + 2P - K}{S} \right\rfloor + 1$$
 **双阈值 + 边缘连接（hysteresis）**：
 - 梯度 > high → **强边缘**（确信保留）
 - 梯度 < low → **非边缘**（丢弃）
-- low < 梯度 < high → **弱边缘**：如果与强边缘 8-邻接 → 保留；否则丢弃
+- low < 梯度 < high → **弱边缘**：若沿 8-邻域弱边缘链可到达强边缘则保留，不限于直接邻接强边缘的第一圈像素。
 - 这个设计兼顾了去噪（low 阈值滤掉弱噪声）和完整性（弱但连接强边缘的被保留）
 
 ### 2.2 梯度方向量化
 
-Sobel 梯度的方向被量化为 4 个方向（0°, 45°, 90°, 135°），因为 NMS 只需要在这些方向上的前后邻居：
+**[分析判断]** 一种离散实现把梯度方向量化为 0°、45°、90°、135°，沿对应方向与两侧邻居比较；也可沿真实梯度方向插值比较。四方向量化不是 Canny 定义中不可更改的条件，上节的尺度和阈值也仅是示例。
 
 
 ---
@@ -100,7 +100,9 @@ $$E(u,v) \approx [u \; v] \; M \; \begin{bmatrix} u \\ v \end{bmatrix}, \quad M 
 $$R = \det(M) - k \cdot \text{trace}(M)^2 = \lambda_1 \lambda_2 - k(\lambda_1 + \lambda_2)^2$$
 
 
-### 3.2 SIFT (Scale-Invariant Feature Transform)
+### 3.2 SIFT：尺度不变特征变换
+
+SIFT（Scale-Invariant Feature Transform，尺度不变特征变换）在尺度空间检测局部极值，并用局部方向直方图描述关键点。**[论文发现]** 下列步骤来自 [1，§3–6]。
 
 **四步流程**：
 
@@ -110,7 +112,7 @@ $$R = \det(M) - k \cdot \text{trace}(M)^2 = \lambda_1 \lambda_2 - k(\lambda_1 + 
    └── DoG (Difference of Gaussian): 相邻尺度相减 → 极值点检测
 
 2. Keypoint Localization
-   └── 去掉低对比度和边缘上的点（丢弃 ~90% 候选点）
+   └── 去掉低对比度和边缘响应过强的点（比例取决于图像与阈值）
 
 3. Orientation Assignment
    └── 在关键点周围计算梯度方向直方图（36 bins）
@@ -121,21 +123,23 @@ $$R = \det(M) - k \cdot \text{trace}(M)^2 = \lambda_1 \lambda_2 - k(\lambda_1 + 
    └── 16×16 邻域 → 分成 4×4 子块
        每块计算 8 方向梯度直方图
        → 4×4×8 = 128 维描述子
-       归一化 → 光照不变性
+        归一化与截断 → 减弱部分亮度、对比度变化的影响
 ```
 
 **SIFT 的不变性**：
 - **平移不变**：局部检测
 - **旋转不变**：方向归一化
 - **尺度不变**：DoG 多尺度空间极值检测
-- **光照不变**：描述子归一化
+- **光照鲁棒性**：梯度与归一化可抵消理想的加性亮度偏移和正比例缩放，但非线性照明、阴影、饱和仍会改变描述子。[1，§6]
 - **视角变化**：部分鲁棒（仿射变化）
 
 ### 3.3 ORB (Oriented FAST and Rotated BRIEF)
 
+ORB（Oriented FAST and Rotated BRIEF，带方向的 FAST 与旋转 BRIEF）用带方向的角点检测和二值比较构造局部描述子。FAST（Features from Accelerated Segment Test，加速线段测试特征）用圆周连续像素比较检测角点；BRIEF（Binary Robust Independent Elementary Features，二值鲁棒独立基本特征）用局部像素对的亮度比较构造二值编码。
+
 ORB 是比 SIFT 更轻量的二值特征方案：
 
-- **FAST 角点**：如果像素 p 与周围 16 个像素中 ≥ 9 个差异大 → 角点。极快但不含尺度和方向
+- **FAST 角点**：圆周 16 个像素中必须存在连续的一段像素，全部比中心亮至少阈值或全部暗至少阈值。FAST-9 的连续段长为 9；不是任意 9 个绝对差较大的像素即可。[2，第 4–5 页]
 - **BRIEF 描述子**：256 对随机点对的灰度比较 → 256 bit。极快但不含旋转不变性
 
 ORB = FAST (加尺度金字塔 + 灰度质心方向) + rBRIEF (旋转感知的 BRIEF)：
@@ -144,7 +148,7 @@ ORB = FAST (加尺度金字塔 + 灰度质心方向) + rBRIEF (旋转感知的 B
 ### 3.4 特征匹配
 
 
-**Lowe's ratio test 的原理**：对于 query 中的每个点，找最近邻 m 和次近邻 n。如果 $d(m)/d(n) < 0.7$，则 m 是可信匹配（因为离次近邻足够远，有唯一性）。如果比值 > 0.7，说明 m 和 n 都差不多远 → 可能是重复纹理/噪声。
+**[论文发现]** Lowe 比值检验比较最近邻与次近邻距离 $d_1/d_2$，原论文采用 0.8 阈值。[1，§7.1] 较低比值表示最近邻相对更突出，但不保证它正确；阈值是可选择的，仍需几何验证。0.7 是可能的设置，不能称为原论文固定定义。
 
 ---
 
@@ -162,13 +166,14 @@ ORB = FAST (加尺度金字塔 + 灰度质心方向) + rBRIEF (旋转感知的 B
 
 ### 4.2 单应矩阵 (Homography)
 
-描述两个平面之间的投影变换：
-$$x' = Hx, \quad H_{3\times3}$$
+**[数学推导]** 在齐次坐标中，平面间投影满足 $\lambda\tilde x'=H\tilde x$，其中 $\lambda\neq0$ 表示齐次尺度。若 $H\tilde x=(u,v,w)^T$ 且 $w\neq0$，欧氏坐标为 $(u/w,v/w)$，不能将齐次等价直接写成两个欧氏坐标的线性等式。
 
-**至少需要 4 对匹配点**（每对贡献 2 个方程，8 个未知数 = 8/2 = 4）。
+**至少需要 4 对非退化匹配点**（每对贡献 2 个独立约束，单应矩阵除整体比例外有 8 个自由度）；共线等退化配置不能唯一确定单应。
 
 
-### 4.3 RANSAC (RANdom SAmple Consensus)
+### 4.3 RANSAC：随机采样一致性
+
+RANSAC（RANdom SAmple Consensus，随机采样一致性）通过反复抽取小样本拟合模型，并用全体数据的一致性筛选候选模型。
 
 解决"有 outliers 时的模型拟合"：
 
@@ -180,14 +185,14 @@ $$x' = Hx, \quad H_{3\times3}$$
 5. 用所有 inliers 重新拟合最终模型
 ```
 
-**迭代次数 N 的确定**：
-$$N = \frac{\log(1-p)}{\log(1-w^s)}$$
+**[数学推导]** 假设每次采样独立，单点为内点的概率为 $w$，抽取 $s$ 点全部为内点的概率近似为 $w^s$。$N$ 次均未抽中全内点组的概率为 $(1-w^s)^N$。要求成功概率至少为 $p$，得到：
+$$N\geq\left\lceil\frac{\log(1-p)}{\log(1-w^s)}\right\rceil,\qquad 0<w,p<1.$$
 
 - p = 期望的成功概率（通常 0.99）
 - w = inlier 比例（估计值）
 - s = 最小样本数
 
-当 outlier 比 50% 时，s=4：$N = \frac{\log(0.01)}{\log(1-0.5^4)} \approx 72$ 次迭代就足够。
+例如内点比例 $w=0.5$、$s=4$、$p=0.99$ 时，需要向上取整为 72 次。该概率计算还假设全内点组非退化且能产生有效模型，不是实际成功的无条件保证。
 
 ### 4.4 图像配准流程
 
@@ -207,7 +212,7 @@ Image B ──→ 特征检测 (SIFT/ORB) ──→ 特征描述
 
 ## 五、NMS (Non-Maximum Suppression)
 
-目标检测推理的**必须环节**，用于去除对同一物体的重复检测。
+NMS（Non-Maximum Suppression，非极大值抑制）按分数保留预测并抑制高度重叠框；它常用于密集检测器，但不是所有检测器的必需环节，例如 DETR 采用集合预测避免依赖 NMS。[3，第 1、5–7 页]
 
 ### 5.1 算法流程
 
@@ -233,7 +238,7 @@ $$s_i = \begin{cases} s_i, & \text{IoU} < \tau \\ s_i \cdot (1 - \text{IoU}), & 
 |------|------|------|------|
 | **NMS** | 直接删除 | 快 | 密集场景漏检 |
 | **Soft-NMS** | 降低 score | 减少漏检 | 慢一点 |
-| **Weighted Boxes Fusion** | 融合重叠框 | 最精确 | 最慢 |
+| **Weighted Boxes Fusion** | 按权重融合多份重叠预测 | 可用于模型集成 | 效果依赖预测质量、匹配与融合规则，不能保证最精确 |
 
 ---
 
@@ -241,9 +246,16 @@ $$s_i = \begin{cases} s_i, & \text{IoU} < \tau \\ s_i \cdot (1 - \text{IoU}), & 
 
 ### 6.1 IoU 计算
 
+IoU（Intersection over Union，交并比）衡量两个区域的相对重叠。**[数学推导]** 对正面积轴对齐矩形 $A=(x_1,y_1,x_2,y_2)$ 与 $B=(u_1,v_1,u_2,v_2)$：
+
+$$w_I=\max(0,\min(x_2,u_2)-\max(x_1,u_1)),\quad h_I=\max(0,\min(y_2,v_2)-\max(y_1,v_1)),$$
+$$|I|=w_Ih_I,\qquad\operatorname{IoU}(A,B)=\frac{|I|}{(x_2-x_1)(y_2-y_1)+(u_2-u_1)(v_2-v_1)-|I|}.$$
+
+分母来自集合容斥公式。这里使用连续坐标区域面积；若采用离散像素索引，需要明确端点约定。
 
 ### 6.2 Rotated IoU
 
+OBB（Oriented Bounding Box，有向边界框）用中心、尺寸和方向表示可旋转矩形。
 两个旋转矩形（OBB）的交集面积计算**远复杂于轴对齐矩形**。核心挑战：两个旋转矩形的交集是多边形（最多 8 边形），需要：
 
 1. **求交点**：A 的每条边与 B 的每条边的交叉点
@@ -282,6 +294,8 @@ Level 2 (160×120)
 
 **多尺度测试**（传统方法）：
 
+**[分析判断]** 将输入缩放为若干尺寸，分别提取特征并检测，再把预测框映射回同一坐标系进行合并。它增加了多次图像处理的代价；特征金字塔则在一次网络内融合不同分辨率特征，两者不能视为同一操作。
+
 **图像金字塔在 SIFT 中的角色**：每层（octave）是上一层降采样 2× 的结果，每层内又有多个 DoG 尺度 → 实现尺度不变性。
 
 ---
@@ -292,15 +306,20 @@ Level 2 (160×120)
 
 | 空间 | 通道 | 特点 | 使用场景 |
 |------|------|------|---------|
-| **RGB** | Red, Green, Blue | 原始传感器输出，强光照耦合 | 显示、常规输入 |
-| **HSV** | Hue, Saturation, Value | 颜色、饱和度、亮度分离 | 颜色分割（独立于光照） |
+| **RGB** | Red, Green, Blue | 红绿蓝通道表示；不等同于原始传感器读数 | 显示、常规输入 |
+| **HSV** | Hue, Saturation, Value | 色相、饱和度与明度分量 | 按颜色阈值分割，但不保证照明不变 |
 | **Lab** | L, a, b | 感知均匀（ΔE 接近人眼感知） | 色彩差异计算 |
 | **YCbCr** | Luma, Cb, Cr | 亮度、色度分离 | 视频压缩、肤色检测 |
 
 ### 8.2 RGB → HSV
 
+**[数学推导]** 设 $r,g,b\in[0,1]$，$M=\max(r,g,b)$、$m=\min(r,g,b)$、$\Delta=M-m$。则 $V=M$，$M>0$ 时 $S=\Delta/M$（$M=0$ 时约定 $S=0$）。当 $\Delta>0$ 时，按最大通道定义色相：
 
-HSV 的优势：颜色由 Hue 单一维度决定，不受亮度/饱和度变化影响。光照变化只影响 V 通道。
+$$H=60^\circ\begin{cases}((g-b)/\Delta)\bmod6,&M=r,\\(b-r)/\Delta+2,&M=g,\\(r-g)/\Delta+4,&M=b.\end{cases}$$
+
+$\Delta=0$ 时颜色无彩，色相没有唯一意义。理想正比例缩放 $(r,g,b)\mapsto a(r,g,b)$ 且不发生饱和时，$H,S$ 不变；若光源改变通道比例、出现加性偏移或饱和，$H,S$ 也可能变化。
+
+**[分析判断]** 因此 HSV 便于表达颜色阈值，却不能把光照变化保证隔离到 V 通道。
 
 ---
 
@@ -368,9 +387,11 @@ $$F_1 = \frac{2 \cdot P \cdot R}{P + R}$$
 
 对检测器在**不同 confidence 阈值**下，绘制 Precision-Recall 曲线：
 
-$$\text{AP} = \int_0^1 P(R) \, dR \approx \frac{1}{11} \sum_{r \in \{0,0.1,...,1\}} \max_{\tilde{r} \geq r} P(\tilde{r})$$
+AP（Average Precision，平均精度）汇总不同召回率下的精确率；具体离散定义依评价协议而定。VOC 2007 使用 11 点插值形式：
 
-（VOC 2007 的 11-point interpolation，COCO 用 101-point）
+$$\text{AP}_{11}=\frac{1}{11}\sum_{r\in\{0,0.1,\ldots,1\}}\max_{\tilde r\geq r}P(\tilde r).$$
+
+不能把这一公式当作所有 AP 指标的统一定义。COCO 的标准汇总还涉及 101 个召回采样点、多个 IoU 阈值以及目标尺度等设置；报告数字时应写明数据集、匹配规则与具体指标。该段仍需在评价专题中补齐官方协议的逐项出处。
 
 ### 11.3 mAP
 
@@ -386,8 +407,18 @@ $$\text{mAP} = \frac{1}{K} \sum_{k=1}^K \text{AP}_k$$
 
 ### Q: SIFT vs ORB 什么时候用哪个？
 
-**A**: SIFT 精度高但慢 + 有专利。ORB 快 + 免费。嵌入式/实时系统用 ORB，高精度离线匹配用 SIFT。神经网络时代两者都被 SuperPoint 等 learned descriptor 超越。
+**[分析判断]** 比较应依据视角、尺度、纹理、匹配精度与计算预算，不能固定排列为某种描述子始终更好。SIFT 的梯度描述与 ORB 的二值比较提供不同取舍；学习式描述子也需要在目标数据上验证。许可与专利状态不作为本理论页的选型依据。
 
 ### Q: RANSAC 在 outlier 比例很高时怎么办？
 
-**A**: RANSAC 对 outlier 比例 < 50% 工作良好。超过 50% 时：减少最小样本集大小、增加迭代次数、或用更鲁棒的变体如 MSAC（M-estimator SAC）、PROSAC（带先验的采样）。
+**[数学推导]** RANSAC 没有统一的 50% 外点硬阈值。由第 4.3 节可知，成功率取决于内点比例、最小样本数和迭代数；当内点比例很小时，需要的次数快速增长。最小样本数由模型决定，不能任意减小。更可靠的匹配先验和采样策略可能改善效率，但仍需验证退化与误匹配。
+
+## 论文出处与证据边界
+
+> [1] David G. Lowe. “Distinctive Image Features from Scale-Invariant Keypoints.” International Journal of Computer Vision, 60(2):91–110, 2004。作者公开稿 §3–6（PDF 第 7–17 页）描述关键点与描述子，§7.1（第 19–20 页）介绍最近邻比值检验。[作者原文](https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf)
+>
+> [2] Edward Rosten, Tom Drummond. “Machine Learning for High-Speed Corner Detection.” ECCV, 2006。作者公开稿第 4–5 页定义连续圆周像素测试。[作者原文](https://www.edwardrosten.com/work/rosten_2006_machine.pdf)
+>
+> [3] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, Sergey Zagoruyko. “End-to-End Object Detection with Transformers.” ECCV, 2020。arXiv:2005.12872v3，第 1、5–7 页介绍无 NMS 集合预测。[原文](https://arxiv.org/pdf/2005.12872v3)
+
+**[分析判断]** 本文仍是跨主题速查材料；Canny、Harris、ORB、Otsu、HOG 与评估协议的完整原文对照应在相应专题中继续补齐，不应把本文当作这些方法均已逐项完成证据核验的综述。

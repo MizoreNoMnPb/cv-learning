@@ -179,7 +179,7 @@ $$
 
 ## 论文出处
 
-> [1] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever. “Learning Transferable Visual Models From Natural Language Supervision.” ICML, 2021。双向对比训练见公开版第 3–4 页，编码器见第 5 页，零样本分类见第 5–6 页，提示与局限见第 7 页、第 15–16 页。[归档原文](<Multimodal/paper/[ICML 2021] CLIP - Learning Transferable Visual Models From Natural Language Supervision/paper.pdf>)
+> [1] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever. “Learning Transferable Visual Models From Natural Language Supervision.” ICML, 2021。双向对比训练见公开版第 3–4 页，编码器见第 5 页，零样本分类见第 5–6 页，提示与局限见第 7 页、第 15–16 页。[归档原文](<../01-Foundations/Backbone/[ICML 2021] CLIP - Learning Transferable Visual Models From Natural Language Supervision/paper.pdf>)
 >
 > [2] Kaiyang Zhou, Jingkang Yang, Chen Change Loy, Ziwei Liu. “Learning to Prompt for Vision-Language Models.” IJCV, 2022。提示参数化与训练见公开版第 4–5 页。[原文](https://arxiv.org/pdf/2109.01134)
 >

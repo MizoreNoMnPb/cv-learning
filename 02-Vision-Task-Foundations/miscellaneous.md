@@ -1,10 +1,12 @@
 # 其余关键技术详解
 
-> 覆盖：Deformable Convolution / SPADE / Grounding DINO / MIL Loss / Gradient Discrepancy Loss / Jacobian SVD / EMA Update / Fourier Features
+> 本文暂作跨主题查阅页：可变形卷积、空间条件归一化、多实例学习、局部敏感性、参数平均与 Fourier 特征。Grounding DINO 的完整结构见 [DETR 串讲](DETR.md#grounding-dino)。各主题后续应并入对应串讲；本文不再充当新主题的默认收纳页。
 
 ---
 
-## 一、Deformable Convolution
+## 一、可变形卷积（Deformable Convolution）
+
+可变形卷积根据输入预测采样偏移，使卷积采样位置可以离开固定网格。
 
 > 出处：Jifeng Dai, Haozhi Qi, Yuwen Xiong, Yi Li, Guodong Zhang, Han Hu, Yichen Wei. “Deformable Convolutional Networks.” *IEEE International Conference on Computer Vision (ICCV)*, pp.764-773, 2017。标准卷积与可变形卷积定义见公开版 pp.3-4, Equations (1)-(2)。
 
@@ -22,11 +24,13 @@ $$y(p_0) = \sum_{p_n \in \mathcal{R}} w(p_n) \cdot x(p_0 + p_n)$$
 **Deformable Conv** 为每个采样位置学习一个**偏移量**：
 $$y(p_0) = \sum_{p_n \in \mathcal{R}} w(p_n) \cdot x(p_0 + p_n + \Delta p_n)$$
 
-其中 $\Delta p_n$ 由另一个卷积网络预测（通常是 2N 个偏移值，N 为核大小）。
+其中 $\Delta p_n$ 由另一个卷积网络预测（二维情况下，每个空间位置输出 $2N$ 个偏移值，$N$ 为核内采样点数量）。非整数位置通过双线性插值取样。[论文发现，原文第 3 页公式 (2)–(4)]
 
 ---
 
 ## 二、SPADE (Spatially-Adaptive Denormalization)
+
+SPADE（Spatially-Adaptive Denormalization，空间自适应反归一化）根据语义条件为不同空间位置预测不同的缩放与偏移。
 
 > 出处：Taesung Park, Ming-Yu Liu, Ting-Chun Wang, Jun-Yan Zhu. “Semantic Image Synthesis with Spatially-Adaptive Normalization.” *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*, pp.2337-2346, 2019。无参数归一化与 SPADE 定义见公开版 pp.3-4, Equations (1)-(2)。
 
@@ -91,14 +95,18 @@ MIL 的核心改变：**不指定哪个 proposal 属于哪个类别**，而是�
 
 | | CrossEntropy | MILCrossEntropy |
 |---|---|---|
-| **标签要求** | 每个 proposal 一个确定标签 | 可以为多热编码（不确定） |
-| **对噪声的容忍** | 低（噪声标签直接误导） | 高（只需正类总体有响应） |
+| **标签要求** | 每个候选区域一个实例标签 | 每个样本包一个或多个标签，不指明包内具体哪个实例为正 |
+| **对噪声的容忍** | 取决于实例标签质量和目标函数 | 可容忍实例位置未知；不能自动修复错误的包级类别标签 |
 | **优化目标** | proposal-level 精确分类 | bag-level 至少有一个正确的 |
 | **适用场景** | 干净标注 | 伪标签、弱监督 |
 
+**[数学推导]** 例如对二分类包 $B=\{x_i\}_{i=1}^m$，在给定实例正类概率 $p_i$ 且条件独立的假设下，所有实例均为负的概率为 $\prod_i(1-p_i)$，于是“至少一个为正”的包概率为 $P_B=1-\prod_i(1-p_i)$。包标签 $y_B\in\{0,1\}$ 对应损失 $-y_B\log P_B-(1-y_B)\log(1-P_B)$。这只是明确假设下的一种聚合形式，MIL 不存在唯一通用的损失公式；多热编码与标签不确定性也不是同一概念。
+
 ---
 
-## 五、Jacobian SVD
+## 五、Jacobian 与奇异值分解：局部敏感性
+
+Jacobian（雅可比矩阵）汇集向量函数各输出对各输入的偏导；SVD（Singular Value Decomposition，奇异值分解）将线性映射分解为输入方向、缩放系数和输出方向。
 
 ### 5.1 理论背景
 
@@ -111,18 +119,20 @@ $$J = \frac{\partial f(x)}{\partial x} = \begin{pmatrix}
 \end{pmatrix} \in \mathbb{R}^{K \times D}$$
 
 - $J_{ij}$：输入的第 j 个像素变化时，对第 i 个类别 logit 的影响
-- 如果所有输入方向上的扰动都使输出变化相似 → Jacobian 的奇异值分布**集中**（少数大奇异值）→ 存在**连续吸引子**
-- 如果每个方向独立影响输出 → 奇异值分布**分散** → 无明显的连续吸引子结构
+- 它描述固定输入附近的输出敏感性；仅凭静态分类网络的 Jacobian，不能推出存在连续吸引子。
 
 ### 5.2 为什么 Jacobian SVD 能反映局部几何结构
 
 对输入 $x$ 附近的小扰动 $\delta$：
 $$f(x + \delta) \approx f(x) + J \cdot \delta$$
 
-- **大奇异值对应的方向**：输入沿该方向变化时，输出变化剧烈（→ 对扰动敏感，分类边界清晰）
-- **小奇异值对应的方向**：输入沿该方向变化时，输出几乎不变（→ 对扰动不敏感，可能是"平坦"的吸引子区域）
-- 奇异值的**分布特征**（如均值、方差、极差、最大最小比）反映了网络的"吸引子景观"
-- 不同架构（CNN, RNN, MLP）的奇异值分布模式不同 → 反映了架构结构对吸引子行为的影响
+**[数学推导]** 设 $J=U\Sigma V^T$，$v_i,u_i$ 为一对右、左奇异向量，奇异值为 $\sigma_i$。令 $\delta=\epsilon v_i$，则
+
+$$f(x+\epsilon v_i)-f(x)=\epsilon\sigma_i u_i+o(|\epsilon|).$$
+
+因此大奇异值表示该输入方向上一阶变化大，小奇异值表示一阶变化小。$\sigma_i=0$ 只消去一阶项；例如 $f(x)=x^2$ 在 $x=0$ 的导数为零，但有限扰动仍改变输出。分类边界还取决于类别分数差，不能由某个大奇异值直接断言“边界清晰”。
+
+**[分析判断]** 吸引子属于动力系统概念，必须另行定义状态递推 $h_{t+1}=F(h_t)$ 或微分方程，并检查不变集合及其附近的稳定性；静态映射 $f:\mathbb R^D\to\mathbb R^K$ 的低秩不足以提供这些条件。
 
 ---
 
@@ -132,11 +142,7 @@ $$f(x + \delta) \approx f(x) + J \cdot \delta$$
 
 ### 6.1 为什么用 EMA
 
-直接将 student 参数复制给 teacher（hard update）会导致：
-- Teacher 随 student 快速变化 → 伪标签不稳定
-- Student 容易"作弊"（adversarially exploit teacher）
-
-EMA 让 teacher 缓慢跟随 student，提供更稳定的学习目标。
+**[论文发现]** Mean Teacher 使用学生参数的指数移动平均构造教师，并让带扰动的学生与教师预测保持一致；教师参数通过平均更新，不通过一致性损失直接优化。[1，第 3 页] 参数平均减少相邻步教师权重的变化，但不保证其伪标签正确，也不能据此断言直接复制参数必然导致“作弊”。
 
 teacher 参数 $\theta_T$ 的更新为：
 
@@ -149,12 +155,7 @@ $$
 
 ### 6.2 EMA momentum 的影响
 
-| momentum | 含义 | 效果 |
-|----------|------|------|
-| 1.0 | Teacher 固定（不更新） | Baseline |
-| 0.999 | Teacher 极慢变化 | 最稳定，但可能跟不上 student |
-| 0.99 | Teacher 缓慢变化 | 稳定性与跟随速度折中 |
-| 0.9 | Teacher 较快变化 | 接近直接复制，不太稳定 |
+**[数学推导]** 展开更新可得 $\theta_{T,t}=m^t\theta_{T,0}+(1-m)\sum_{j=1}^t m^{t-j}\theta_{S,j}$。忽略初始项后，历史权重按几何级数衰减，典型时间尺度约为 $1/(1-m)$ 步。$m=0.9,0.99,0.999$ 分别对应约 $10,100,1000$ 步；$m=0$ 才是直接复制，$m=1$ 是固定教师这一边界情形。最优平滑程度取决于学生变化速度。
 
 ---
 
@@ -162,7 +163,7 @@ $$
 
 ### 7.1 为什么需要位置编码
 
-神经网络（特别是 MLP）难以学习**高频函数**——直接输入坐标 (x, y) 很难让网络学到精确的空间位置。Fourier 特征映射将低频坐标映射到高频空间，使 MLP 能更好地表示空间细节。
+**[论文发现]** Fourier 特征工作研究低维坐标回归中 MLP（Multi-Layer Perceptron，多层感知机）的频谱偏置，用正弦和余弦特征改变其对不同频率的学习能力。[2，第 1–4 页] 这与 Transformer 用位置编码打破无位置注意力的排列对称性是相关但不同的问题；坐标本身不宜称为“低频数据”。
 
 ### 7.2 正弦位置编码
 
@@ -176,6 +177,8 @@ $$
 \operatorname{PE}(p,2i+1)=\cos\left(p/10000^{2i/d}\right).
 $$
 
+**[论文发现]** 上式来自 Transformer 的固定位置编码，其中 $d$ 为编码宽度。[3，第 6 页]
+
 ### 7.3 Fourier 特征映射
 
 对坐标 $x$ 和频率矩阵 $B$：
@@ -185,7 +188,7 @@ $$
 $$
 
 **Fourier Features 的关键性质**：
-- 低频坐标 (x,y) → 映射到高频空间 → MLP 可以更容易地学习空间变化
+- 坐标 $(x,y)$ → 一组不同频率的正弦、余弦特征 → 改变多层感知机拟合空间细节时的频率偏好；坐标本身不应被称为“低频数据”
 - 类似核方法中的 RBF kernel approximation
 - 在 NeRF 中也大量使用
 
@@ -203,9 +206,7 @@ $$
 
 ### Q: MIL Loss 和标准 CrossEntropy 在什么情况下差异最大？
 
-**A**: 当**伪标签有噪声**时差异最大：
-- 如果 GDINO 将一个 "car" 误标为 "truck"，CrossEntropy 会强行优化该 proposal 向 "truck" 方向，导致特征混淆
-- MIL 不要求每个 proposal 精确分类，只要求在一组 proposals 中 "truck" 的正类总分高即可，容忍个别错误
+**[分析判断]** 当包标签可靠但实例位置未知时，两者监督粒度不同，MIL 可以避免把所有候选区域都强行赋予同一实例标签。若整包的真实类别是 car 却被误标成 truck，MIL 仍会受错误包标签误导；它不是普遍的抗伪标签噪声机制。
 
 ### Q: EMA 的 momentum 为什么通常接近 1？
 
@@ -216,8 +217,12 @@ $$
 
 ### Q: Jacobian 的奇异值为 0 意味着什么？
 
-**A**:
-- 存在输入方向，沿该方向扰动时**任意类别的输出都不变化**
-- 这意味着网络在该输入附近有一个"平坦"的方向
-- 从动力系统角度看，这对应**连续吸引子**的 tangent space
-- 奇异值越小（越接近 0），说明该方向的输出不敏感度越高，吸引子结构越明显
+**[数学推导]** 对应右奇异向量方向的一阶响应为零；高阶变化仍可能存在。只有在定义了动力系统并验证不变性与稳定性之后，才有依据讨论吸引子及其切空间。
+
+## 补充论文出处
+
+> [1] Antti Tarvainen, Harri Valpola. “Mean Teachers Are Better Role Models: Weight-Averaged Consistency Targets Improve Semi-Supervised Deep Learning Results.” NeurIPS, 2017。第 3 页 Figure 2、教师参数更新与一致性目标。[归档原文](<../04-Domain-Adaptation/Mean-Teacher/[NeurIPS 2017] MeanTeacher - Mean Teachers Are Better Role Models/paper.pdf>)
+>
+> [2] Matthew Tancik, Pratul P. Srinivasan, Ben Mildenhall, Sara Fridovich-Keil, Nithin Raghavan, Utkarsh Singhal, Ravi Ramamoorthi, Jonathan T. Barron, Ren Ng. “Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains.” NeurIPS, 2020。arXiv:2006.10739，第 1–4 页讨论频谱偏置、特征映射及频率尺度。[原文](https://arxiv.org/pdf/2006.10739)
+>
+> [3] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Łukasz Kaiser, Illia Polosukhin. “Attention Is All You Need.” NeurIPS, 2017。第 6 页 §3.5 位置编码。[原文](https://arxiv.org/pdf/1706.03762)

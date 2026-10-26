@@ -208,7 +208,7 @@ $$\mathcal{L}_{InfoNCE} = -\frac{1}{N} \sum_{i=1}^N \log \frac{\exp(\text{sim}(v
 - 负对：当前批次内未配对的图文组合
 - $\tau>0$：温度参数，控制候选概率的集中程度
 
-将相似度经 Softmax 转成匹配概率，再对正确匹配取负对数并平均，即得上式。双向目标与温度解释见 [CLIP 文档](../02-Vision-Tasks/clip.md)。
+将相似度经 Softmax 转成匹配概率，再对正确匹配取负对数并平均，即得上式。双向目标与温度解释见 [CLIP 文档](../02-Vision-Task-Foundations/clip.md)。
 
 ### 4.2 三元组损失（Triplet Loss）
 
@@ -278,7 +278,7 @@ $$\mathcal{L}_G = -\mathbb{E}_{z}[D(G(z))]$$
 
 ### Q: 为什么 DETR 用 L1+GIoU 两个回归损失？
 
-**[论文发现]** DETR 联合使用归一化边界框坐标上的 L1 距离与 GIoU 损失。[4，第 4 页]
+**[论文发现]** DETR 联合使用归一化边界框坐标上的 L1 距离与 GIoU 损失。[4，arXiv:2005.12872v3 第 5–6 页]
 
 **[分析判断]** L1 直接约束各坐标分量的差异，GIoU 描述两个框的相对几何关系。两者关注的误差不同；不宜把它们简化为“绝对位置”和“没有位置信息”。
 
@@ -296,6 +296,6 @@ DDPM（Denoising Diffusion Probabilistic Models，去噪扩散概率模型）学
 >
 > [3] Zhaohui Zheng, Ping Wang, Wei Liu, Jinze Li, Rongguang Ye, Dongwei Ren. “Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression.” AAAI, 2020。距离与宽高比项见公开版第 3–5 页。[原文](https://arxiv.org/pdf/1911.08287)
 >
-> [4] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, Sergey Zagoruyko. “End-to-End Object Detection with Transformers.” ECCV, 2020。边界框损失见公开版第 4 页公式 (2)。[原文](https://arxiv.org/pdf/2005.12872)
+> [4] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, Sergey Zagoruyko. “End-to-End Object Detection with Transformers.” ECCV, 2020。总匹配损失见 arXiv:2005.12872v3 第 5 页公式 (2)，边界框损失见第 6 页 “Bounding box loss” 段。[原文](https://arxiv.org/pdf/2005.12872)
 >
 > [5] Jonathan Ho, Ajay Jain, Pieter Abbeel. “Denoising Diffusion Probabilistic Models.” NeurIPS, 2020。反向过程参数化与简化目标见公开版第 3–4 页，公式 (11)–(14)。[原文](https://arxiv.org/pdf/2006.11239)

@@ -8,7 +8,7 @@
 
 ## 一、DETR (DEtection TRansformer)
 
-> Carion et al., "End-to-End Object Detection with Transformers", ECCV 2020
+> **[论文发现]** DETR（DEtection TRansformer，检测 Transformer）通过一对一集合监督直接预测检测结果；本节结构与目标来自 [1，第 5–8 页]。
 
 ### 1.1 动机：抛弃 NMS 和 Anchor
 
@@ -41,7 +41,7 @@ DETR 的目标：将目标检测变成一个**端到端的集合预测问题**�
                       ▼
 ┌─────────────────────────────────────────────┐
 │ Step 2: 1×1 卷积降维                         │
-│   Conv2d(2048, 256, kernel_size=1)           │
+│   1×1 卷积：2048 输入通道 → 256 输出通道    │
 │   将 2048 通道压缩到 d_model=256              │
 └─────────────────────┬───────────────────────┘
                       │
@@ -60,9 +60,9 @@ DETR 的目标：将目标检测变成一个**端到端的集合预测问题**�
                       ▼
 ┌─────────────────────────────────────────────┐
 │ Step 4: 加位置编码 (Positional Encoding)      │
-│   固定正弦位置编码 (不是可学习的)               │
+│   基线采用固定二维正弦位置编码                │
 │   每个 (row, col) 位置生成唯一的 256 维编码     │
-│   形状也是 (850, 256)，直接 element-wise 相加  │
+│   形状也是 (850, 256)，加入每层注意力的Q/K     │
 └─────────────────────┬───────────────────────┘
                       │
     (850, 256)        这是送入 Transformer Encoder 的最终序列
@@ -108,17 +108,14 @@ Token 2:  位置 (0,2)  的 256 维特征
 Token 849: 位置 (24,33) 的 256 维特征
 ```
 
-**关键问题**：展平丢失了空间位置关系——Token 0 和 Token 1 在图像上是相邻的，但 Transformers 不知道。必须通过位置编码补偿。
+**[数学推导]** 展平只是可逆的索引重排，不会删除特征值。问题在于不带位置输入的自注意力对 token 排列等变，无法仅从这个运算规则判断原二维邻接关系；位置编码提供坐标信息。
 
 #### Step 4: 位置编码——保留空间信息
 
 DETR 使用**固定的 2D 正弦位置编码**（对行和列分别编码再拼接）：
 
 
-**为什么用正弦位置编码而不是可学习的位置编码**：
-- 正弦编码具有天然的**相对位置**归纳能力：$\text{PE}(pos+k)$ 可以表示为 $\text{PE}(pos)$ 的线性函数
-- 模型可以学会关注相对位置关系（如"上方的物体"），而不需要记住每个绝对位置
-- 对未见过的图像尺寸也能泛化（可学习编码只能处理固定尺寸）
+**[论文发现]** 原文比较固定与可学习位置编码，基线采用固定正弦编码，并在每层注意力中加入位置表示。[1，第 13 页 Table 3、第 20 页 Figure 10] **[分析判断]** 正弦规则可在新坐标求值，可学习编码也可通过插值等方式适配不同尺寸；是否泛化取决于具体结构与训练，不能说可学习编码只能处理固定尺寸。
 
 #### 序列化后的尺寸流转
 
@@ -127,7 +124,7 @@ DETR 使用**固定的 2D 正弦位置编码**（对行和列分别编码再拼�
 Backbone:    (B, 2048, 25, 34)     H=25, W=34
 1×1 Conv:    (B, 256, 25, 34)      C: 2048→256
 Flatten:     (B, 850, 256)         N=25×34=850 tokens
-+ PosEnc:    (B, 850, 256)         element-wise 加
+PosEnc:      (B, 850, 256)         保留为独立位置输入
     │
     ▼
 Transformer Encoder 输入:
@@ -147,8 +144,8 @@ Decoder Cross-Attention:
 #### 为什么这个序列化方案巧妙
 
 1. **无信息损失**：展平是可逆的（知道 H, W 就能还原 2D 结构），本质上只是改变了内存排列
-2. **位置编码解耦**：空间位置信息和语义特征分离——展平的特征只编码"看到什么"，位置编码只编码"在哪儿"——Transformer 可以灵活组合两者
-3. **类 NLP 的接口**：序列化后直接复用标准 Transformer（不做任何修改），DETR 的 Encoder/Decoder 就是标准 Transformer 结构
+2. **显式位置输入**：位置表示与内容特征分别提供给注意力；不能假定骨干特征完全不含位置信息。
+3. **序列接口**：复用 Transformer 的注意力与前馈模块，但目标查询并行解码，不采用原始文本 Transformer 的自回归因果解码。[1，第 7 页]
 
 ### 1.3 核心架构
 
@@ -162,13 +159,13 @@ CNN Backbone (ResNet-50) → 特征图 (2048, H/32, W/32)
 1×1 Conv 降维 → (256, H/32, W/32)
     │
     ▼
-Flatten + Positional Encoding → 序列 (HW, 256)
+Flatten → 特征序列 (H_f W_f, 256)，另提供位置编码
     │
     ▼
 Transformer Encoder × 6 层 → 全局上下文增强的特征序列
     │
     ▼
-100 个 Object Queries (可学习的，代表"寻找 100 个物体")
+100 个 Object Queries（可学习的预测槽位，可输出 no object）
     │
     ▼
 Transformer Decoder × 6 层 → 每个 query 解码出一个检测结果
@@ -185,8 +182,8 @@ Prediction Heads (共享 FFN)，每个 query 独立预测:
 
 
 - 这 100 个 queries 是**可学习的参数**（不是从图像计算的）
-- 训练后，不同 query 会自然地**专精于不同位置和尺度**的物体
-- 例如：query_0 偏向检测大物体在图像中央，query_45 偏向检测小物体在右下角
+- **[论文发现]** 原文可视化观察到不同槽位具有位置与尺寸偏好。[1，第 14 页 Figure 7]
+- **[分析判断]** 这种偏好是训练结果，不是每个查询必须对应固定位置或固定类别的保证。
 
 ### 1.5 核心创新二：Bipartite Matching (匈牙利匹配)
 
@@ -211,7 +208,7 @@ $$\mathcal{L}_{match}(y_i, \hat{y}_{\sigma(i)}) = -\mathbb{1}_{\{c_i \neq \empty
 
 $$\mathcal{L} = \sum_{i=1}^N \left[ -\log \hat{p}_{\hat{\sigma}(i)}(c_i) + \mathbb{1}_{\{c_i \neq \emptyset\}} \cdot \left( \lambda_{L1} \|b_i - \hat{b}\|_1 + \lambda_{giou} \cdot (1 - \text{GIoU}) \right) \right]$$
 
-- 分类：标准 CrossEntropy（∅ 类也算）
+- 分类：交叉熵，∅ 类也参与；原文将 ∅ 类项权重降为其他类别的 1/10，上式未展开该加权。[1，第 5–6 页]
 - 框回归：L1 Loss + GIoU Loss（两者互补）
 
 ### 1.7 DETR 的优缺点
@@ -231,7 +228,7 @@ $$\mathcal{L} = \sum_{i=1}^N \left[ -\log \hat{p}_{\hat{\sigma}(i)}(c_i) + \math
 
 ### 1.8 补充阅读：Swin Transformer 层次化骨干网络
 
-> Liu et al., "Swin Transformer: Hierarchical Vision Transformer using Shifted Windows", ICCV 2021 (Best Paper)
+> **[论文发现]** Swin 的层次结构与移位窗口来自 [2，第 3–5 页]。下图以 Swin-T 为例。
 
 本节补充 Swin Transformer 的窗口与层次化表示，用于理解采用这一骨干网络的检测器变体。首次阅读方法演进时，可先跳到 [Deformable DETR](#deformable-detr)，之后再回看。
 
@@ -257,31 +254,31 @@ Patch Partition: 切成 4×4 patches (每个 patch = 4×4×3 = 48 维)
     │
     ▼
 Stage 1: Linear Embedding + Swin Blocks × 2
-    │ → (C, H/4, W/4)    C=128
+    │ → (C, H/4, W/4)    C=96
     │
     ▼
 Patch Merging: 2×2 邻域拼接 → 4C → Linear → 2C
     │
     ▼
 Stage 2: Swin Blocks × 2
-    │ → (2C, H/8, W/16)   2C=256   ← 对应 FPN 的 P3
+    │ → (2C, H/8, W/8)    2C=192   ← stride 8 的骨干特征
     │
     ▼
 Patch Merging
     │
     ▼
 Stage 3: Swin Blocks × 6
-    │ → (4C, H/16, W/16)  4C=512   ← 对应 FPN 的 P4
+    │ → (4C, H/16, W/16)  4C=384   ← stride 16 的骨干特征
     │
     ▼
 Patch Merging
     │
     ▼
 Stage 4: Swin Blocks × 2
-    │ → (8C, H/32, W/32)  8C=1024  ← 对应 FPN 的 P5
+    │ → (8C, H/32, W/32)  8C=768   ← stride 32 的骨干特征
 ```
 
-这天然生成了**多尺度特征**（stages 2/3/4 的输出恰好对应 FPN 的 P3/P4/P5），无需额外构建图像金字塔。
+这产生不同步幅的骨干特征。FPN（Feature Pyramid Network，特征金字塔网络）还包含横向与自顶向下融合，不能把原始 stage 输出直接称为 FPN 的 P3/P4/P5。
 
 #### Swin 的核心创新二：Shifted Window Attention
 
@@ -356,7 +353,7 @@ Shifted window 导致窗口大小不均（边角窗口只有部分），直接 a
 | **Swin-T** | 96 | {2,2,6,2} | 28M | 轻量 |
 | **Swin-S** | 96 | {2,2,18,2} | 50M | 中等 |
 | **Swin-B** | 128 | {2,2,18,2} | 88M | Grounding DINO |
-| **Swin-L** | 192 | {2,2,18,2} | 197M | DINO 最强版本 |
+| **Swin-L** | 192 | {2,2,18,2} | 197M | 原文的大容量变体 |
 
 #### 在 DETR 系中的使用
 
@@ -370,12 +367,12 @@ DINO 和 Grounding DINO 用 Swin 替换 ResNet backbone 的方式：
 
 | | ViT (如 CLIP ViT-B/16) | Swin Transformer |
 |---|---|---|
-| **结构** | 单尺度，全程 14×14 patches | 层次化，4 个 stage 逐步降采样 |
+| **结构** | 224×224 输入、16×16 像素块时为 14×14 token 网格 | 层次化，4 个 stage 逐步降采样 |
 | **Attention** | 全局 self-attention，$O(N^2)$ | 窗口内 attention + Shifted window，$O(N \cdot M^2)$ |
 | **多尺度输出** | 无（需额外模块） | 天然多尺度（4 个 stage） |
-| **计算效率** | 高分辨率下不可承受 | 分辨率增加时计算量线性增长 |
+| **计算效率** | 全局关系项随 token 数平方增长 | 固定窗口大小时，关系项随 token 数线性增长 |
 | **适用任务** | 分类、CLIP 对比学习 | **检测、分割（密集预测任务）** |
-| **网络深度** | uniform（全层同样） | 递增（浅层少 block、深层多 block） |
+| **网络深度** | 各层保持同一 token 分辨率 | stage 深度由变体指定，并非单调递增 |
 
 ---
 
@@ -383,7 +380,7 @@ DINO 和 Grounding DINO 用 Swin 替换 ResNet backbone 的方式：
 
 ## 二、Deformable DETR
 
-> Zhu et al., "Deformable DETR: Deformable Transformers for End-to-End Object Detection", ICLR 2021
+> **[论文发现]** 可变形注意力、多尺度结构与比较结果来自 [3，第 5–8 页]。
 
 ### 2.1 解决 DETR 的两个核心问题
 
@@ -395,7 +392,7 @@ DINO 和 Grounding DINO 用 Swin 替换 ResNet backbone 的方式：
 标准 Attention：
 $$\text{Attn}(z_q, x) = \sum_{m=1}^{HW} \text{softmax}(q \cdot k_m) \cdot v_m$$
 
-计算量 $O(HW)$，且与特征图大小平方增长。
+**[数学推导]** 单个查询遍历 $HW$ 个位置，关系计算关于位置数为线性；若查询也有 $HW$ 个，全部自注意力才产生 $(HW)^2$ 个关系项。还需乘以特征宽度并计入投影。
 
 **Deformable Attention**：
 $$\text{DeformAttn}(z_q, \hat{p}_q, x) = \sum_{h=1}^{H} W_h \left[ \sum_{k=1}^{K} A_{hqk} \cdot W_h' x(\hat{p}_q + \Delta p_{hqk}) \right]$$
@@ -411,13 +408,15 @@ $$\text{DeformAttn}(z_q, \hat{p}_q, x) = \sum_{h=1}^{H} W_h \left[ \sum_{k=1}^{K
 
 ### 2.3 多尺度特征
 
+**[论文发现]** 原文用 ResNet 的 C3/C4/C5 特征经 1×1 投影，再从 C5 经 stride-2 卷积得到第四层；四个尺度通道统一为 256，对应步幅 8、16、32、64。多尺度注意力在各层分别采样并归一化权重，同时加入尺度编码。它没有使用额外的 FPN 自顶向下结构。[3，第 6 页公式 (3)]
+
 
 ### 2.4 与 DETR 的对比
 
 | | DETR | Deformable DETR |
 |---|---|---|
-| **Convergence** | 500 epochs | 50 epochs (10× 更快) |
-| **小物体 AP** | ~10 | ~25 |
+| **原文训练轮数** | 500 epochs | 50 epochs；轮数比不等于耗时比 |
+| **小物体 AP** | 20.5 | 26.4；COCO val2017、基础 ResNet-50 配置 [3，第 8 页 Table 1] |
 | **Encoder Self-Attn** | 全局 (HW × HW) | Deformable (HW × K) |
 | **Decoder Cross-Attn** | 全局 (N × HW) | 多尺度 Deformable (N × K × L) |
 | **特征** | 单尺度 | 多尺度 |
@@ -428,7 +427,7 @@ $$\text{DeformAttn}(z_q, \hat{p}_q, x) = \sum_{h=1}^{H} W_h \left[ \sum_{k=1}^{K
 
 ## 三、DINO (DETR with Improved DeNoising anchOr boxes)
 
-> Zhang et al., "DINO: DETR with Improved DeNoising Anchor Boxes for End-to-End Object Detection", ICLR 2023
+> **[论文发现]** 本节按归档 arXiv:2203.03605v4 解读；正式发表为 ICLR 2023，页码不能与其他版本混用。[4]
 
 ### 3.1 核心改进
 
@@ -446,15 +445,12 @@ DINO 在 Deformable DETR 基础上做了三处关键改进，进一步加速收�
 
 #### (2) Mixed Query Selection
 
-DETR 的 decoder queries 是纯可学习参数。Deformable DETR 用 encoder 输出的 top-K 特征初始化 queries 的 content 部分。DINO 进一步改进：
+**[论文发现]** 两阶段 Deformable DETR 用编码器选出的特征初始化位置与内容；DINO 的 Mixed Query Selection（混合查询选择）只从高分编码器位置初始化动态锚框，内容查询仍为可学习嵌入。这样位置依赖当前图像，而初始内容不直接复制尚未精炼的局部特征。[4，第 9–10 页 §3.4] 一阶段 Deformable DETR 与两阶段变体应分开。
 
 
 #### (3) Look Forward Twice
 
-标准 DETR 中，梯度只从最后一层反传。DINO 让每层 decoder 的梯度独立反传，且 box 预测的梯度**不反传到下一层**：
-
-
-新的修正方法中，box 预测的梯度不截断，但用一个辅助 loss 来稳定。
+**[论文发现]** 原始 DETR 已对每个解码层加入辅助预测损失。[1，第 7–8 页] DINO 的 Look Forward Twice（向前看两次）针对迭代框细化的梯度路径：让第 $i$ 层框偏移受到本层与相邻后一层框损失的共同监督，而不是只接受本层框损失。它不是简单取消所有 stop-gradient，更不是“原 DETR 只在最后一层反传”。[4，第 10–11 页 Figure 6、§3.5]
 
 ### 3.2 DINO 整体架构
 
@@ -491,10 +487,10 @@ DETR 的 decoder queries 是纯可学习参数。Deformable DETR 用 encoder 输
 |------|----------|--------|-----------|
 | DETR | R50 | 500 | 42.0 |
 | Deformable DETR | R50 | 50 | 43.8 |
-| DINO | R50 | 12 | 49.0 |
-| DINO | Swin-L | 36 | 58.5 |
+| DINO-4scale | R50 | 12 | 49.0；归档 v4 第 12 页 Table 1 |
+| DINO-5scale | R50 | 12 | 49.4；归档 v4 第 12 页 Table 1 |
 
-DINO 仅 12 epochs 就超越了 Deformable DETR 50 epochs 的结果。
+**[论文发现]** 以上是对应论文在 COCO val2017 的报告值；DETR/Deformable DETR 取自 [3，第 8 页 Table 1]。多尺度数、增强、查询与训练方法不同，不能把 AP 差异全部归因于某一项改进，也不能由轮数直接推出计算成本。
 
 ---
 
@@ -502,11 +498,11 @@ DINO 仅 12 epochs 就超越了 Deformable DETR 50 epochs 的结果。
 
 ## 四、Grounding DINO
 
-> Liu et al., "Grounding DINO: Marrying DINO with Grounded Pre-Training for Open-Set Object Detection", ECCV 2024
+> **[论文发现]** Grounding DINO 的三个跨模态融合环节来自 [5，第 3–5 页]。
 
 ### 4.1 核心目标
 
-将**闭集检测器 DINO** 扩展为**开放词汇检测器**——输入文本描述，检测任意类别的物体。
+将闭集检测的固定类别输出扩展为文本条件的区域—词语匹配；可查询的类别不必限于下游检测标注集合，但不能保证任意文本类别都能被正确检测。
 
 ### 4.2 架构创新
 
@@ -533,9 +529,11 @@ DINO 仅 12 epochs 就超越了 Deformable DETR 50 epochs 的结果。
 
 #### Language-Guided Query Selection
 
+**[论文发现]** 语言引导查询选择先比较各图像位置与文本 token 的相似度，再按每个图像位置的最大文本响应选择高分候选，作为解码器查询的位置来源。[5，第 4 页公式 (1)]
+
 
 **与传统 Query Selection 的区别**：
-- DINO：根据 encoder 输出的 objectness score 选择（闭集）
+- DINO：依据闭集分类头的候选类别分数选择编码器位置
 - Grounding DINO：根据图像-文本的**跨模态响应**选择（开集）
 
 #### Cross-Modality Decoder
@@ -578,23 +576,36 @@ Grounding DINO 的文本输入格式：用 "." 分隔类别名：
 
 ### Q: Deformable Attention 的复杂度从 $O(N^2)$ 降到多少？
 
-**A**: $O(N \cdot K)$，其中 K 是采样点数（通常 4）。对于 N=10K 的特征图位置，从 $O(10^8)$ 降到 $O(4 \times 10^4)$，降低了 2500 倍。
+**[数学推导]** 仅统计关系采样项时，单尺度由 $N^2$ 变为每头 $NK$；多尺度还需乘尺度数。完整模块仍含值投影与输出投影，不能把关系项比例当作整体 FLOPs 或耗时比例。[3，第 5–6 页及附录 A.1]
 
 ### Q: Grounding DINO 和 GLIP 的主要区别？
 
 **A**: 
 - **GLIP**：基于 DyHead + BERT，将检测重新表述为 phrase grounding（区域-短语匹配），效果强但架构较重
-- **Grounding DINO**：基于 DINO 架构，将开放词汇能力融入 DETR 系列，在 COCO 上 AP 相当但架构更优雅
+- **Grounding DINO**：以 DINO 为基础，在特征增强、查询选择、解码三个阶段引入语言信息；性能需注明预训练数据、零样本或微调协议后比较。[5，第 3–6 页]
 - Grounding DINO 的 Text Cross-Attention 在 decoder 每一层都做，GLIP 偏向在特征层做 fusion
 
 ### Q: Swin Transformer 的核心创新是什么？为什么比 ViT 更适合做检测 backbone？
 
 **A**: 两个核心创新：
-1. **层次化结构**：4 个 stage 逐步降采样，天然生成多尺度特征（P3/P4/P5），无需额外 FPN
-2. **Shifted Window Attention**：窗口内做 self-attention（高效），交替偏移窗口实现跨窗口信息交互（等价全局感受野）
+1. **层次化结构**：4 个 stage 逐步降采样，产生不同分辨率骨干特征；是否添加 FPN 由检测头决定。
+2. **Shifted Window Attention**：窗口内计算注意力，交替偏移使信息逐层跨窗口传播；有限层数不等于单层全局注意力。
 
-检测需要多尺度特征和高分辨率 → ViT 的单尺度 + $O(H^2W^2)$ 复杂度不适合，Swin 的层次化 + 窗口 attention 完美适配。
+**[分析判断]** Swin 提供直接可用的层次特征与局部计算结构；ViT 也可经特征重组、窗口注意力等方式用于密集任务，不能从原始单尺度输出推出“不适合检测”。
 
 ### Q: Shifted Window 的 cyclic shift + mask 是做什么的？
 
 **A**: 窗口偏移后，特征图边缘产生不完整窗口。Cyclic shift 将其循环移位拼成完整窗口（便于批量 attention），同时用 attention mask 屏蔽"不应交互"的区域对——如原本不在同一窗口的两个 patch 被错误拼到一个窗口时，mask 阻止它们之间的 attention。这比给每个碎片窗口单独做 attention 更高效。
+
+
+## 论文出处
+
+> [1] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, Sergey Zagoruyko. “End-to-End Object Detection with Transformers.” ECCV, 2020。arXiv:2005.12872v3，第 5–8 页损失与架构，第 13–14 页位置编码和查询可视化，第 20 页结构图。[原文](https://arxiv.org/pdf/2005.12872v3)
+>
+> [2] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, Baining Guo. “Swin Transformer: Hierarchical Vision Transformer using Shifted Windows.” ICCV, 2021。归档版第 3–5 页层次化结构、窗口注意力和模型尺寸。[归档原文](<../01-Foundations/Backbone/[ICCV 2021] Swin-T - Swin Transformer - Hierarchical Vision Transformer using Shifted Windows/paper.pdf>)
+>
+> [3] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, Jifeng Dai. “Deformable DETR: Deformable Transformers for End-to-End Object Detection.” ICLR, 2021。arXiv:2010.04159v4，第 5–6 页公式 (2)–(3)，第 8 页 Table 1。[原文](https://arxiv.org/pdf/2010.04159v4)
+>
+> [4] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun Zhu, Lionel M. Ni, Heung-Yeung Shum. “DINO: DETR with Improved DeNoising Anchor Boxes for End-to-End Object Detection.” ICLR, 2023。归档为 arXiv:2203.03605v4（2022），第 9–11 页混合查询与梯度路径，第 12 页 Table 1。[归档原文](<Object-Detection/[ICLR 2023] DINO - DETR with Improved DeNoising Anchor Boxes for End-to-End Object Detection/paper.pdf>)
+>
+> [5] Shilong Liu, Zhaoyang Zeng, Tianhe Ren, Feng Li, Hao Zhang, Jie Yang, Qing Jiang, Chunyuan Li, Jianwei Yang, Hang Su, Jun Zhu, Lei Zhang. “Grounding DINO: Marrying DINO with Grounded Pre-Training for Open-Set Object Detection.” ECCV, 2024。公开预印本第 3–5 页总体架构、语言引导查询与解码。[归档原文](<../04-Domain-Adaptation/VLM-Prior/[ECCV 2024] GDINO - Grounding DINO Marrying DINO with Grounded Pre-Training for Open-Set Object Detection/paper.pdf>)

@@ -2,11 +2,15 @@
 
 > 两阶段目标检测的演进路线：R-CNN (2014) → Fast R-CNN (2015) → Faster R-CNN (2015) → Mask R-CNN (2017)
 
+R-CNN（Regions with Convolutional Neural Network Features，基于区域的卷积神经网络特征）先提取候选区域，再进行分类与定位。CNN（Convolutional Neural Network，卷积神经网络）用局部卷积提取特征；RoI（Region of Interest，感兴趣区域）是待进一步识别的候选区域；SVM（Support Vector Machine，支持向量机）是基于分类间隔的判别模型。
+
+各代方法的结构与目标属于 **[论文发现]**，分别对应文末 [1]–[4]；结构取舍的解释属于 **[分析判断]**。这里的两阶段指候选生成与候选识别，不代表一定要进行两次整图骨干前向。
+
 ---
 
 ## 一、R-CNN (2014)
 
-> Girshick et al., "Rich Feature Hierarchies for Accurate Object Detection and Semantic Segmentation", CVPR 2014
+> 原文 [1，第 2–4 页]。
 
 ### 1.1 核心流程
 
@@ -43,7 +47,7 @@ NMS (Non-Maximum Suppression) → 最终检测结果
 
 ### 1.3 局限性
 
-- **极慢**：每张图需要 2000 次 CNN 前向（~47s/image on GPU）
+- **重复计算**：每张图约 2000 个候选分别经过 CNN，区域间的重叠图像内容没有共享卷积特征。[1，第 2–3 页]
 - **多阶段训练**：CNN、SVM、BBox Regressor 分别训练
 - **Selective Search 是瓶颈**：不可学习的 proposal 生成
 - **Warping 丢失信息**：强制拉伸 proposal 到 227×227 改变了长宽比
@@ -52,7 +56,7 @@ NMS (Non-Maximum Suppression) → 最终检测结果
 
 ## 二、Fast R-CNN (2015)
 
-> Girshick, "Fast R-CNN", ICCV 2015
+> 原文 [2，第 2–3 页]。
 
 ### 2.1 核心改进：共享特征计算
 
@@ -95,7 +99,7 @@ FC 层 → 两个 sibling 输出:
 
 ### 2.3 Multi-Task Loss
 
-Fast R-CNN 实现了端到端的联合训练：
+**[论文发现]** 在候选区域已经给定的条件下，Fast R-CNN 联合训练共享特征、分类和框回归；Selective Search 本身不参与梯度训练。[2，第 2–3 页公式 (1)]
 
 $$
 \mathcal{L} = \mathcal{L}_{cls}(p, u) + \lambda \cdot [u \geq 1] \cdot \mathcal{L}_{loc}(t^u, v)
@@ -111,9 +115,11 @@ $$
 
 ## 三、Faster R-CNN (2015)
 
-> Ren et al., "Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks", NeurIPS 2015
+> 原文 [3，§3.1–3.2]。
 
 ### 3.1 核心创新：RPN (Region Proposal Network)
+
+RPN（Region Proposal Network，区域候选网络）在共享特征图上预测类别无关的前景分数与候选框。
 
 **抛弃 Selective Search**，用一个可学习的子网络生成 proposals：
 
@@ -149,8 +155,10 @@ $$
 
 - $\mathcal{L}_{cls}$：Binary CrossEntropy（前景 vs 背景）
 - $\mathcal{L}_{reg}$：Smooth L1 Loss（只对正样本 anchor）
-- $p_i^* = 1$ 如果 anchor 与某个 GT 的 IoU > 0.7（正样本）
-- $p_i^* = 0$ 如果 anchor 与所有 GT 的 IoU < 0.3（负样本）
+- $p_i^* = 1$：与某个真实框具有最高 IoU 的 anchor，或与某个真实框的 IoU > 0.7（正样本）。最高 IoU 规则用于避免某些真实框没有任何正候选。[3，§3.1.2]
+- $p_i^* = 0$ 如果 anchor 未被归为正样本，且与所有 GT 的 IoU < 0.3（负样本）
+
+GT（Ground Truth，真实标注）是训练监督；IoU（Intersection over Union，交并比）是两个框交集面积与并集面积之比。除上述正负样本外，其他 anchor 不参与该分类损失。
 
 ### 3.4 四步交替训练
 
@@ -174,7 +182,7 @@ $$
 
 ## 四、RoI Align (Mask R-CNN 中的改进)
 
-> He et al., "Mask R-CNN", ICCV 2017
+> 原文 [4，第 3–4 页]。
 
 ### 4.1 RoI Pooling 的问题
 
@@ -232,9 +240,9 @@ Mask R-CNN 新增:
 
 **为什么是 per-class sigmoid 而非 per-pixel softmax**：
 
-- Per-pixel softmax 要求不同类别的 mask 互相排斥
-- Per-class sigmoid 允许重叠（两个物体的 mask 可以有交集）
-- 对重叠物体更友好
+- **[论文发现]** 对一个 RoI，mask 分支只学习“给定类别下哪些像素属于该实例”，类别判断由独立分类分支负责。[4，第 3 页]
+- 逐像素 sigmoid 避免不同类别的 mask 通道相互竞争，训练只监督真实类别通道。
+- 这不是为了允许“两个实例重叠”：不同 RoI 的 mask 本来就独立输出，实例之间是否重叠与同一 RoI 内是否做类别 softmax 是两件事。
 
 ### 5.4 Mask Loss
 
@@ -249,12 +257,14 @@ $$
 
 ## 六、R-CNN 系列演进总结
 
-| 方法               | 年份 | Proposal         | 特征           | 分类器     | 速度  | 新增能力        |
-| ------------------ | ---- | ---------------- | -------------- | ---------- | ----- | --------------- |
-| R-CNN              | 2014 | Selective Search | 独立 CNN       | SVM        | ~47s  | 首次用 CNN 检测 |
-| Fast R-CNN         | 2015 | Selective Search | 共享 CNN       | Softmax    | ~2s   | 端到端训练      |
-| Faster R-CNN       | 2015 | RPN (可学习)     | 共享 CNN       | Softmax    | ~0.2s | 全可学习        |
-| Mask R-CNN         | 2017 | RPN              | 共享 CNN + FPN | Softmax    | ~0.2s | +实例分割       |
+| 方法 | 年份 | 候选生成 | 特征计算 | 主要变化 |
+|---|---|---|---|---|
+| R-CNN | 2014 | Selective Search | 每个区域独立卷积 | 将预训练卷积特征用于候选区域识别 |
+| Fast R-CNN | 2015 | Selective Search | 整图共享卷积 | 在给定候选上联合分类与回归 |
+| Faster R-CNN | 2015 | 可学习 RPN | 与检测头共享卷积 | 学习类别无关的候选生成 |
+| Mask R-CNN | 2017 | RPN | 共享骨干，支持多种特征结构 | RoIAlign 与独立实例 mask 分支 |
+
+**[分析判断]** 不同骨干、输入尺寸、候选数量和运行条件下的耗时不能直接横比。原始 R-CNN 的 AlexNet 流程也不应配上另一种骨干的速度数字。
 
 ---
 
@@ -264,10 +274,9 @@ $$
 
 **A**:
 
-- **RoI Pooling**：两次量化取整，损失空间精度，速度快
-- **RoI Align**：双线性插值，无量化，精度高，但稍慢
-- RoI Align 对分割任务是必须的（像素级精度），对检测也有小改善（~1% AP）
-- RoI Align 已成为需要高精度空间对齐时的标准选择
+- **RoI Pooling**：区域及分箱边界量化可能产生位置偏差。
+- **RoI Align**：在连续坐标处插值，避免上述量化；原文通过消融观察了对 mask 与框预测的改善。[4，第 6–7 页]
+- 它不是所有分割网络的必需模块，例如 U-Net 不通过 RoI 提取特征；具体计算开销与效果要结合配置。
 
 ### Q: RPN 的 anchor 怎么选？不合适的 anchor 有什么影响？
 
@@ -278,8 +287,18 @@ $$
 
 ### Q: Faster R-CNN 和 YOLO 的本质区别？
 
-**A**: Faster R-CNN 是**两阶段**：RPN 初筛 proposals → ROI Head 精细分类回归。YOLO 是**单阶段**：直接在特征图上预测。两阶段精度高（特别是小物体），单阶段速度快。近年差距缩小（YOLOv8 已接近）。
+**[分析判断]** Faster R-CNN 先生成候选，再对候选区域识别与回归；典型 YOLO 检测器直接在密集特征位置产生预测。阶段数说明信息流，不给出精度或速度的普遍排序；比较必须固定数据、骨干、输入尺寸与评估协议。
 
 ### Q: Mask R-CNN 中为什么 mask 分支不做 softmax？
 
-**A**: Per-pixel softmax 强制每个像素只能属于一个类别。Per-class sigmoid 允许两个物体的 mask 有重叠区域。对于大多数场景（如两个物体部分遮挡），sigmoid 更合理。
+**[论文发现]** 分类分支已经预测 RoI 的类别，mask 分支只需学习该类别的二值空间形状。使用独立 sigmoid 并仅监督真实类别通道，避免在 mask 目标中重复进行类别竞争。[4，第 3 页]
+
+## 论文出处
+
+> [1] Ross Girshick, Jeff Donahue, Trevor Darrell, Jitendra Malik. “Rich Feature Hierarchies for Accurate Object Detection and Semantic Segmentation.” CVPR, 2014。公开版第 2–4 页描述候选、卷积特征和训练。[原文](https://arxiv.org/pdf/1311.2524)
+>
+> [2] Ross Girshick. “Fast R-CNN.” ICCV, 2015。公开版第 2–3 页 RoI pooling 与多任务目标公式 (1)。[原文](https://arxiv.org/pdf/1504.08083)
+>
+> [3] Shaoqing Ren, Kaiming He, Ross Girshick, Jian Sun. “Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks.” NeurIPS, 2015；扩展版发表于 TPAMI, 2017。arXiv:1506.01497v3 第 3–6 页 §3.1–3.2 说明 RPN、正负样本及联合训练方案。[原文](https://arxiv.org/pdf/1506.01497v3)
+>
+> [4] Kaiming He, Georgia Gkioxari, Piotr Dollár, Ross Girshick. “Mask R-CNN.” ICCV, 2017。arXiv:1703.06870v3，第 3–4 页定义 mask 目标与 RoIAlign，第 6–7 页消融。[原文](https://arxiv.org/pdf/1703.06870v3)
